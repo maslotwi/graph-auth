@@ -1,7 +1,13 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/maslotwi/graph-auth/api"
+)
 
 func main() {
-	fmt.Println("Hello World")
+	port := 8080
+	fmt.Printf("Listening on port %d\n", port)
+	api.RunAPIServer(port)
 }
