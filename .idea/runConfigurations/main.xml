@@ -1,0 +1,11 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="main" type="GoApplicationRunConfiguration" factoryName="Go Application">
+    <module name="graph-auth" />
+    <working_directory value="$PROJECT_DIR$" />
+    <kind value="PACKAGE" />
+    <package value="github.com/maslotwi/graph-auth" />
+    <directory value="$PROJECT_DIR$" />
+    <auto_managed_config_id value="$PROJECT_DIR$" />
+    <method v="2" />
+  </configuration>
+</component>
