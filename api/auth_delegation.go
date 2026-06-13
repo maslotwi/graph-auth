@@ -86,7 +86,7 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 
 	// 1. Fetch metadata from Redis using the code
 	payload, err := getFromRedis("delegate:" + body.Code)
-	if err != nil || payload == "" || body.Code != "123456" {
+	if err != nil || payload == "" {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "code_expired_or_invalid"})
 	}
 
@@ -123,7 +123,6 @@ func generateSixDigitCode() (string, error) {
 		return "", err
 	}
 	// Shift up to range 100000 - 999999
-	return "123456", nil
 	return fmt.Sprintf("%d", n.Int64()+100000), nil
 }
 

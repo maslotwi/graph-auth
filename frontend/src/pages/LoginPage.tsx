@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link, useSearchParams } from "react-router-dom"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -11,9 +11,16 @@ import {
 } from "@/components/ui/card"
 import { QRCode } from "@/components/ui/qr-code"
 
-const MOCK_LOGIN_URL = `${window.location.origin}/verify?token=demo`
-
 export default function LoginPage() {
+  const [searchParams] = useSearchParams()
+  const returnTo = searchParams.get("return") ?? ""
+
+  const verifyHref = returnTo
+    ? `/verify?token=demo&return=${encodeURIComponent(returnTo)}`
+    : "/verify?token=demo"
+
+  const mockLoginUrl = `${window.location.origin}${verifyHref}`
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
@@ -24,7 +31,7 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-3">
         <div className="rounded-xl border bg-muted/30 p-4">
-          <QRCode value={MOCK_LOGIN_URL} size={200} />
+          <QRCode value={mockLoginUrl} size={200} />
         </div>
         <p className="text-xs text-muted-foreground">
           This code expires in 5 minutes
@@ -36,7 +43,7 @@ export default function LoginPage() {
         </Button>
         <p className="text-sm text-muted-foreground">
           Already verified?{" "}
-          <Link to="/verify?token=demo" className="text-foreground underline">
+          <Link to={verifyHref} className="text-foreground underline">
             Continue setup
           </Link>
         </p>

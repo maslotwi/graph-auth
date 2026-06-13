@@ -32,9 +32,13 @@ export default function VerifyEmailPage() {
     async function runVerification() {
       try {
         const response = await verify(token!)
-        void navigate(response.requiresRootSetup ? "/setup/root" : "/", {
-          replace: true,
-        })
+        const returnTo = searchParams.get("return")
+        const destination = returnTo
+          ? returnTo
+          : response.requiresRootSetup
+            ? "/setup/root"
+            : "/"
+        void navigate(destination, { replace: true })
       } catch (err) {
         const message =
           err instanceof ApiError ? err.message : "Verification failed."

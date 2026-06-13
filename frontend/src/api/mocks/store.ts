@@ -8,7 +8,10 @@ type Session = {
 
 const sessions = new Map<string, Session>()
 const nodeChildren = new Map<string, GraphNode[]>()
-const invites = new Map<string, string>() // token → parentNodeId
+const delegationCodes = new Map<
+  string,
+  { parentNodeId: string; scopes: GraphNode["permissions"] }
+>()
 
 export function createSession(email: string): string {
   const token = `mock-token-${crypto.randomUUID()}`
@@ -99,24 +102,48 @@ export function invalidateNode(id: string): boolean {
 function seedDemoChildren(root: GraphNode) {
   const laptop = createChildNode(root.id, "Laptop", ["read", "write", "admin"])
   createChildNode(root.id, "Phone", ["read"])
-  const work = createChildNode(laptop.id, "Work Profile", ["read", "write", "sso"])
+  const work = createChildNode(laptop.id, "Work Profile", [
+    "read",
+    "write",
+    "sso",
+  ])
   createChildNode(work.id, "CI Runner", ["read", "write"])
 }
 
-export function createInvite(parentNodeId: string): string {
-  const token = `invite-${crypto.randomUUID()}`
-  invites.set(token, parentNodeId)
-  return token
+export function createDelegationCode(
+  parentNodeId: string,
+  scopes: GraphNode["permissions"]
+): { code: string; link: string; expires_in: number } {
+  const code = String(Math.floor(100000 + Math.random() * 900000))
+  delegationCodes.set(code, { parentNodeId, scopes })
+  const link = `${window.location.origin}/join?code=${code}`
+  return { code, link, expires_in: 120 }
 }
 
-export function redeemInvite(token: string): string | null {
-  const parentId = invites.get(token) ?? null
-  if (parentId) invites.delete(token)
-  return parentId
+export function consumeDelegationCode(
+  code: string,
+  deviceName: string
+): { session_token: string; scopes: string[]; status: string } | null {
+  const delegation = delegationCodes.get(code)
+  if (!delegation) return null
+  delegationCodes.delete(code)
+
+  const childNode = createChildNode(
+    delegation.parentNodeId,
+    deviceName || "New Device",
+    delegation.scopes
+  )
+  const newToken = `mock-token-${crypto.randomUUID()}`
+  sessions.set(newToken, { email: "", node: childNode })
+  return {
+    session_token: newToken,
+    scopes: delegation.scopes,
+    status: "authenticated",
+  }
 }
 
 export function resetMockStore(): void {
   sessions.clear()
   nodeChildren.clear()
-  invites.clear()
+  delegationCodes.clear()
 }
