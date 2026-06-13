@@ -1,7 +1,9 @@
 BINARY_NAME=graph-auth-server
 MAIN_PATH=.
+FRONTEND_DIR=frontend
 
-.PHONY: all fmt doc build run clean help
+.PHONY: all fmt doc build run clean help \
+        frontend-install frontend-build frontend-dev dev build-all
 
 all: fmt doc build
 
@@ -43,11 +45,37 @@ run: doc
 	@echo "Starting application..."
 	@go run $(MAIN_PATH)
 
-## clean:       Remove generated binaries and documentation files
+## frontend-install: Install frontend dependencies with bun
+frontend-install:
+	@echo "Installing frontend dependencies..."
+	@cd $(FRONTEND_DIR) && bun install
+
+## frontend-build: Build the frontend for production
+frontend-build:
+	@echo "Building frontend..."
+	@cd $(FRONTEND_DIR) && bun run build
+
+## frontend-dev:    Start the frontend Vite dev server
+frontend-dev:
+	@cd $(FRONTEND_DIR) && bun run dev
+
+## dev:          Start backend and frontend dev servers concurrently (Ctrl+C stops both)
+dev: doc
+	@echo "Starting dev servers..."
+	@trap 'kill 0' INT; \
+		go run $(MAIN_PATH) & \
+		(cd $(FRONTEND_DIR) && bun run dev) & \
+		wait
+
+## build-all:    Build frontend then compile Go binary (production)
+build-all: frontend-build build
+
+## clean:        Remove generated binaries, docs, and frontend dist
 clean:
 	@echo "Cleaning up..."
 	@rm -f $(BINARY_NAME)
 	@rm -rf ./api/docs
+	@rm -rf $(FRONTEND_DIR)/dist
 
 ## help:        Show this help message with available targets
 help:
