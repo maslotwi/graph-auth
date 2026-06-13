@@ -12,7 +12,7 @@
     },
     "basePath": "/",
     "paths": {
-        "/health": {
+        "/api/health": {
             "get": {
                 "description": "Returns the health status of the API",
                 "produces": [

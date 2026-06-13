@@ -8,7 +8,7 @@ info:
   title: Graph Auth
   version: "1.0"
 paths:
-  /health:
+  /api/health:
     get:
       description: Returns the health status of the API
       produces:
