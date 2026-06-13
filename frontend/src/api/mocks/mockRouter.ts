@@ -6,6 +6,7 @@ import {
   createSession,
   getNodeTree,
   getSession,
+  invalidateNode,
 } from "./store"
 
 type MockRequest = {
@@ -154,6 +155,18 @@ export async function handleMockRequest(
     )
 
     return jsonResponse({ node })
+  }
+
+  const invalidateMatch = path.match(/^\/api\/nodes\/([^/]+)\/invalidate$/)
+  if (method === "POST" && invalidateMatch) {
+    const token = getBearerToken(request.headers)
+    if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
+    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
+
+    const nodeId = invalidateMatch[1]
+    const ok = invalidateNode(nodeId)
+    if (!ok) return jsonResponse({ message: "Node not found." }, 404)
+    return jsonResponse({ message: "Node invalidated." })
   }
 
   if (method === "GET" && path === "/api/health") {

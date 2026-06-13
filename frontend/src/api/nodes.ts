@@ -22,3 +22,7 @@ export function getCurrentNode(): Promise<MeNodeResponse> {
 export function getNodeTree(): Promise<NodeTreeResponse> {
   return apiClient<NodeTreeResponse>("/api/nodes/tree")
 }
+
+export function invalidateNode(id: string): Promise<{ message: string }> {
+  return apiClient(`/api/nodes/${id}/invalidate`, { method: "POST" })
+}

@@ -78,6 +78,23 @@ export function getNodeTree(token: string): GraphNode[] | null {
   return all
 }
 
+export function invalidateNode(id: string): boolean {
+  for (const session of sessions.values()) {
+    if (session.node?.id === id) {
+      session.node.status = "invalidated"
+      return true
+    }
+  }
+  for (const children of nodeChildren.values()) {
+    const node = children.find((n) => n.id === id)
+    if (node) {
+      node.status = "invalidated"
+      return true
+    }
+  }
+  return false
+}
+
 function seedDemoChildren(root: GraphNode) {
   const laptop = createChildNode(root.id, "Laptop", ["read", "write", "admin"])
   createChildNode(root.id, "Phone", ["read"])
