@@ -2,11 +2,13 @@ import { apiUrl } from "@/lib/api"
 import type { GraphNode } from "@/types/node"
 import {
   createChildNode,
+  createInvite,
   createRootNode,
   createSession,
   getNodeTree,
   getSession,
   invalidateNode,
+  redeemInvite,
 } from "./store"
 
 type MockRequest = {
@@ -50,20 +52,22 @@ export async function handleMockRequest(
   if (method === "POST" && path === "/api/auth/verify") {
     const body = request.body as { token?: string }
     if (!body.token) {
-      return jsonResponse(
-        { message: "Verification token is required." },
-        400
-      )
+      return jsonResponse({ message: "Verification token is required." }, 400)
+    }
+
+    const parentNodeId = redeemInvite(body.token)
+    if (parentNodeId) {
+      const email = `device-${crypto.randomUUID().slice(0, 8)}@example.com`
+      const sessionToken = createSession(email)
+      const childNode = createChildNode(parentNodeId, "New Device", ["read", "write"])
+      const session = getSession(sessionToken)
+      if (session) session.node = childNode
+      return jsonResponse({ sessionToken, email, requiresRootSetup: false })
     }
 
     const email = "user@example.com"
     const sessionToken = createSession(email)
-
-    return jsonResponse({
-      sessionToken,
-      email,
-      requiresRootSetup: true,
-    })
+    return jsonResponse({ sessionToken, email, requiresRootSetup: true })
   }
 
   if (method === "POST" && path === "/api/nodes/root") {
@@ -155,6 +159,15 @@ export async function handleMockRequest(
     )
 
     return jsonResponse({ node })
+  }
+
+  const inviteMatch = path.match(/^\/api\/nodes\/([^/]+)\/invite$/)
+  if (method === "POST" && inviteMatch) {
+    const token = getBearerToken(request.headers)
+    if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
+    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
+    const inviteToken = createInvite(inviteMatch[1])
+    return jsonResponse({ token: inviteToken })
   }
 
   const invalidateMatch = path.match(/^\/api\/nodes\/([^/]+)\/invalidate$/)

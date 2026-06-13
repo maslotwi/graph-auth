@@ -8,6 +8,7 @@ type Session = {
 
 const sessions = new Map<string, Session>()
 const nodeChildren = new Map<string, GraphNode[]>()
+const invites = new Map<string, string>() // token → parentNodeId
 
 export function createSession(email: string): string {
   const token = `mock-token-${crypto.randomUUID()}`
@@ -102,7 +103,20 @@ function seedDemoChildren(root: GraphNode) {
   createChildNode(work.id, "CI Runner", ["read", "write"])
 }
 
+export function createInvite(parentNodeId: string): string {
+  const token = `invite-${crypto.randomUUID()}`
+  invites.set(token, parentNodeId)
+  return token
+}
+
+export function redeemInvite(token: string): string | null {
+  const parentId = invites.get(token) ?? null
+  if (parentId) invites.delete(token)
+  return parentId
+}
+
 export function resetMockStore(): void {
   sessions.clear()
   nodeChildren.clear()
+  invites.clear()
 }

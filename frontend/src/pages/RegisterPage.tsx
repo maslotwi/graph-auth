@@ -43,7 +43,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-md">
       <CardHeader>
         <CardTitle>Create account</CardTitle>
         <CardDescription>
@@ -51,7 +51,7 @@ export default function RegisterPage() {
         </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
-        <CardContent className="flex flex-col gap-4">
+        <CardContent className="flex min-h-32 flex-col justify-center gap-4">
           {error ? (
             <Alert variant="destructive">
               <AlertDescription>{error}</AlertDescription>

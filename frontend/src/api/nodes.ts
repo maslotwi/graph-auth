@@ -26,3 +26,7 @@ export function getNodeTree(): Promise<NodeTreeResponse> {
 export function invalidateNode(id: string): Promise<{ message: string }> {
   return apiClient(`/api/nodes/${id}/invalidate`, { method: "POST" })
 }
+
+export function createInvite(id: string): Promise<{ token: string }> {
+  return apiClient(`/api/nodes/${id}/invite`, { method: "POST" })
+}

@@ -13,9 +13,10 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
-import { getNodeTree, invalidateNode } from "@/api/nodes"
+import { createInvite, getNodeTree, invalidateNode } from "@/api/nodes"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { QRCode } from "@/components/ui/qr-code"
 import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/useAuth"
 import { cn } from "@/lib/utils"
@@ -152,9 +153,12 @@ function NodeDetailPanel({
   onInvalidated,
 }: NodeDetailPanelProps) {
   const [isInvalidating, setIsInvalidating] = useState(false)
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
 
   const canInvalidate =
     !node.isRoot && !isCurrentNode && node.status === "active"
+  const canInvite = node.status === "active"
 
   async function handleInvalidate() {
     setIsInvalidating(true)
@@ -168,6 +172,20 @@ function NodeDetailPanel({
       )
     } finally {
       setIsInvalidating(false)
+    }
+  }
+
+  async function handleGenerateInvite() {
+    setIsGenerating(true)
+    try {
+      const { token } = await createInvite(node.id)
+      setInviteUrl(`${window.location.origin}/verify?token=${token}`)
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to generate invite."
+      )
+    } finally {
+      setIsGenerating(false)
     }
   }
 
@@ -222,6 +240,40 @@ function NodeDetailPanel({
           <p className="truncate font-mono text-xs text-muted-foreground">
             {node.id}
           </p>
+        </div>
+
+        <Separator />
+
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted-foreground">Add a child device</p>
+          {inviteUrl ? (
+            <div className="flex flex-col items-center gap-2">
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <QRCode value={inviteUrl} size={160} />
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Scan with a new device to join as a child node
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs"
+                onClick={() => setInviteUrl(null)}
+              >
+                Revoke &amp; close
+              </Button>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={!canInvite || isGenerating}
+              onClick={handleGenerateInvite}
+            >
+              {isGenerating ? "Generating…" : "Generate invite QR"}
+            </Button>
+          )}
         </div>
       </div>
       <Separator />
