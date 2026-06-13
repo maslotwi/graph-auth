@@ -1,0 +1,26 @@
+basePath: /
+info:
+  contact: {}
+  description: This is the core REST API for Graph Auth.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  title: Graph Auth
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Returns the health status of the API
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health Check
+      tags:
+      - System
+swagger: "2.0"

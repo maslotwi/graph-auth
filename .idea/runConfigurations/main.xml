@@ -6,6 +6,8 @@
     <package value="github.com/maslotwi/graph-auth" />
     <directory value="$PROJECT_DIR$" />
     <auto_managed_config_id value="$PROJECT_DIR$" />
-    <method v="2" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="doc" run_configuration_type="MAKEFILE_TARGET_RUN_CONFIGURATION" />
+    </method>
   </configuration>
 </component>
