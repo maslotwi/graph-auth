@@ -17,6 +17,9 @@ export default function AppLayout() {
           <Button variant="ghost" render={<Link to="/devices" />}>
             My devices
           </Button>
+          <Button variant="ghost" render={<Link to="/graph" />}>
+            Graph
+          </Button>
         </nav>
         <Button variant="outline" onClick={logout}>
           Log out

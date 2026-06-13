@@ -30,3 +30,7 @@ export type CreateRootNodeResponse = {
 export type MeNodeResponse = {
   node: GraphNode
 }
+
+export type NodeTreeResponse = {
+  nodes: GraphNode[]
+}

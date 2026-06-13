@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -47,8 +49,8 @@ export default function HomePage() {
             </div>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" disabled>
-              Graph view (coming soon)
+            <Button variant="outline" render={<Link to="/graph" />}>
+              Graph view
             </Button>
             <Button variant="outline" onClick={logout}>
               Log out node

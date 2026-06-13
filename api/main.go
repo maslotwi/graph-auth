@@ -19,7 +19,5 @@ func RunAPIServer(port int) {
 	api := app.Group("/api")
 	api.Get("/health", healthCheck)
 
-	app.Get("/health", healthCheck)
-
 	log.Fatal(app.Listen(fmt.Sprintf(":%d", port)))
 }

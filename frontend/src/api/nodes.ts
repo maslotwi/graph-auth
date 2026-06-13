@@ -3,6 +3,7 @@ import type {
   CreateRootNodeRequest,
   CreateRootNodeResponse,
   MeNodeResponse,
+  NodeTreeResponse,
 } from "@/types/auth"
 
 export function createRootNode(
@@ -16,4 +17,8 @@ export function createRootNode(
 
 export function getCurrentNode(): Promise<MeNodeResponse> {
   return apiClient<MeNodeResponse>("/api/nodes/me")
+}
+
+export function getNodeTree(): Promise<NodeTreeResponse> {
+  return apiClient<NodeTreeResponse>("/api/nodes/tree")
 }

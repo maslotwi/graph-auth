@@ -19,6 +19,7 @@ const MyDevicesPage = lazyPage(() => import("@/pages/MyDevicesPage"))
 const CheckEmailPage = lazyPage(() => import("@/pages/CheckEmailPage"))
 const VerifyEmailPage = lazyPage(() => import("@/pages/VerifyEmailPage"))
 const RootNodeSetupPage = lazyPage(() => import("@/pages/RootNodeSetupPage"))
+const GraphPage = lazyPage(() => import("@/pages/GraphPage"))
 
 function PageLoader() {
   return (
@@ -59,6 +60,7 @@ export const routes: RouteObject[] = [
         children: [
           { path: "/", element: withSuspense(<HomePage />) },
           { path: "/devices", element: withSuspense(<MyDevicesPage />) },
+          { path: "/graph", element: withSuspense(<GraphPage />) },
         ],
       },
     ],

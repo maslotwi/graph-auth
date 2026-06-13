@@ -1,6 +1,12 @@
 import { apiUrl } from "@/lib/api"
 import type { GraphNode } from "@/types/node"
-import { createRootNode, createSession, getSession } from "./store"
+import {
+  createChildNode,
+  createRootNode,
+  createSession,
+  getNodeTree,
+  getSession,
+} from "./store"
 
 type MockRequest = {
   path: string
@@ -20,7 +26,7 @@ function getBearerToken(headers: Headers): string | null {
 
 function normalizePath(path: string): string {
   const base = apiUrl("")
-  if (base && path.startsWith(base)) {
+  if (base && base !== "/" && path.startsWith(base)) {
     return path.slice(base.length) || "/"
   }
   return path
@@ -104,6 +110,50 @@ export async function handleMockRequest(
     }
 
     return jsonResponse({ node: session.node })
+  }
+
+  if (method === "GET" && path === "/api/nodes/tree") {
+    const token = getBearerToken(request.headers)
+    if (!token) {
+      return jsonResponse({ message: "Unauthorized" }, 401)
+    }
+
+    const nodes = getNodeTree(token)
+    if (!nodes) {
+      return jsonResponse({ message: "Root node not set up yet." }, 404)
+    }
+
+    return jsonResponse({ nodes })
+  }
+
+  if (method === "POST" && path === "/api/nodes/child") {
+    const token = getBearerToken(request.headers)
+    if (!token) {
+      return jsonResponse({ message: "Unauthorized" }, 401)
+    }
+
+    const session = getSession(token)
+    if (!session?.node) {
+      return jsonResponse({ message: "Root node not set up yet." }, 404)
+    }
+
+    const body = request.body as {
+      parentId?: string
+      label?: string
+      permissions?: GraphNode["permissions"]
+    }
+
+    if (!body.parentId || !body.label) {
+      return jsonResponse({ message: "parentId and label are required." }, 400)
+    }
+
+    const node = createChildNode(
+      body.parentId,
+      body.label.trim(),
+      body.permissions ?? []
+    )
+
+    return jsonResponse({ node })
   }
 
   if (method === "GET" && path === "/api/health") {
