@@ -1,14 +1,14 @@
 import { apiUrl } from "@/lib/api"
 import type { GraphNode } from "@/types/node"
 import {
+  consumeDelegationCode,
   createChildNode,
-  createInvite,
+  createDelegationCode,
   createRootNode,
   createSession,
   getNodeTree,
   getSession,
   invalidateNode,
-  redeemInvite,
 } from "./store"
 
 type MockRequest = {
@@ -54,20 +54,28 @@ export async function handleMockRequest(
     if (!body.token) {
       return jsonResponse({ message: "Verification token is required." }, 400)
     }
-
-    const parentNodeId = redeemInvite(body.token)
-    if (parentNodeId) {
-      const email = `device-${crypto.randomUUID().slice(0, 8)}@example.com`
-      const sessionToken = createSession(email)
-      const childNode = createChildNode(parentNodeId, "New Device", ["read", "write"])
-      const session = getSession(sessionToken)
-      if (session) session.node = childNode
-      return jsonResponse({ sessionToken, email, requiresRootSetup: false })
-    }
-
     const email = "user@example.com"
     const sessionToken = createSession(email)
     return jsonResponse({ sessionToken, email, requiresRootSetup: true })
+  }
+
+  if (method === "POST" && path === "/api/auth/session/generate-code") {
+    const token = getBearerToken(request.headers)
+    if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
+    const session = getSession(token)
+    if (!session?.node) return jsonResponse({ message: "Unauthorized" }, 401)
+    const body = request.body as { scopes?: GraphNode["permissions"]; node_id?: string }
+    const parentNodeId = body.node_id ?? session.node.id
+    const scopes = body.scopes ?? session.node.permissions
+    return jsonResponse(createDelegationCode(parentNodeId, scopes))
+  }
+
+  if (method === "POST" && path === "/api/auth/session/consume-code") {
+    const body = request.body as { code?: string; device_name?: string }
+    if (!body.code) return jsonResponse({ message: "Code is required." }, 400)
+    const result = consumeDelegationCode(body.code, body.device_name ?? "New Device")
+    if (!result) return jsonResponse({ message: "Code expired or invalid." }, 401)
+    return jsonResponse(result)
   }
 
   if (method === "POST" && path === "/api/nodes/root") {
@@ -159,15 +167,6 @@ export async function handleMockRequest(
     )
 
     return jsonResponse({ node })
-  }
-
-  const inviteMatch = path.match(/^\/api\/nodes\/([^/]+)\/invite$/)
-  if (method === "POST" && inviteMatch) {
-    const token = getBearerToken(request.headers)
-    if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
-    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
-    const inviteToken = createInvite(inviteMatch[1])
-    return jsonResponse({ token: inviteToken })
   }
 
   const invalidateMatch = path.match(/^\/api\/nodes\/([^/]+)\/invalidate$/)

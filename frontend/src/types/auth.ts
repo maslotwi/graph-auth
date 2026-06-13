@@ -34,3 +34,15 @@ export type MeNodeResponse = {
 export type NodeTreeResponse = {
   nodes: GraphNode[]
 }
+
+export type DelegationCodeResponse = {
+  code: string
+  link: string
+  expires_in: number
+}
+
+export type ConsumeCodeResponse = {
+  session_token: string
+  scopes: string[]
+  status: string
+}

@@ -30,6 +30,7 @@ type AuthContextValue = {
   isLoading: boolean
   register: (email: string) => Promise<void>
   verify: (token: string) => Promise<VerifyResponse>
+  loginWithToken: (token: string) => Promise<void>
   createRoot: (data: CreateRootNodeRequest) => Promise<void>
   logout: () => void
 }
@@ -134,6 +135,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [applyVerifyResponse]
   )
 
+  const loginWithToken = useCallback(async (token: string) => {
+    setSessionToken(token)
+    setSessionTokenState(token)
+    setEmail(null)
+    setRequiresRootSetup(false)
+    sessionStorage.removeItem(EMAIL_KEY)
+    sessionStorage.setItem(REQUIRES_ROOT_SETUP_KEY, "false")
+    try {
+      const { node } = await nodesApi.getCurrentNode()
+      setCurrentNode(node)
+    } catch {
+      setCurrentNode(null)
+    }
+  }, [])
+
   const createRoot = useCallback(async (data: CreateRootNodeRequest) => {
     const { node } = await nodesApi.createRootNode(data)
     setCurrentNode(node)
@@ -159,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       register,
       verify,
+      loginWithToken,
       createRoot,
       logout,
     }),
@@ -170,6 +187,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       register,
       verify,
+      loginWithToken,
       createRoot,
       logout,
     ]

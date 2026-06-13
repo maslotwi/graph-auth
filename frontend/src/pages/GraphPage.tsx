@@ -13,7 +13,7 @@ import {
 } from "@xyflow/react"
 import "@xyflow/react/dist/style.css"
 
-import { createInvite, getNodeTree, invalidateNode } from "@/api/nodes"
+import { generateDelegationCode, getNodeTree, invalidateNode } from "@/api/nodes"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { QRCode } from "@/components/ui/qr-code"
@@ -153,7 +153,7 @@ function NodeDetailPanel({
   onInvalidated,
 }: NodeDetailPanelProps) {
   const [isInvalidating, setIsInvalidating] = useState(false)
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null)
+  const [invite, setInvite] = useState<{ code: string; link: string } | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
 
   const canInvalidate =
@@ -178,8 +178,8 @@ function NodeDetailPanel({
   async function handleGenerateInvite() {
     setIsGenerating(true)
     try {
-      const { token } = await createInvite(node.id)
-      setInviteUrl(`${window.location.origin}/verify?token=${token}`)
+      const { code, link } = await generateDelegationCode(node.id)
+      setInvite({ code, link })
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : "Failed to generate invite."
@@ -246,19 +246,24 @@ function NodeDetailPanel({
 
         <div className="flex flex-col gap-2">
           <p className="text-xs text-muted-foreground">Add a child device</p>
-          {inviteUrl ? (
-            <div className="flex flex-col items-center gap-2">
+          {invite ? (
+            <div className="flex flex-col items-center gap-3">
               <div className="rounded-lg border bg-muted/30 p-3">
-                <QRCode value={inviteUrl} size={160} />
+                <QRCode value={invite.link} size={160} />
+              </div>
+              <div className="flex w-full items-center justify-center gap-1.5 rounded-md border bg-muted/30 px-3 py-2">
+                <span className="font-mono text-xl font-bold tracking-[0.25em]">
+                  {invite.code}
+                </span>
               </div>
               <p className="text-center text-xs text-muted-foreground">
-                Scan with a new device to join as a child node
+                Scan QR or enter the code on the new device
               </p>
               <Button
                 variant="ghost"
                 size="sm"
                 className="w-full text-xs"
-                onClick={() => setInviteUrl(null)}
+                onClick={() => setInvite(null)}
               >
                 Revoke &amp; close
               </Button>

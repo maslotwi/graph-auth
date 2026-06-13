@@ -20,6 +20,7 @@ const CheckEmailPage = lazyPage(() => import("@/pages/CheckEmailPage"))
 const VerifyEmailPage = lazyPage(() => import("@/pages/VerifyEmailPage"))
 const RootNodeSetupPage = lazyPage(() => import("@/pages/RootNodeSetupPage"))
 const GraphPage = lazyPage(() => import("@/pages/GraphPage"))
+const JoinPage = lazyPage(() => import("@/pages/JoinPage"))
 
 function PageLoader() {
   return (
@@ -41,6 +42,7 @@ export const routes: RouteObject[] = [
       { path: "/register", element: withSuspense(<RegisterPage />) },
       { path: "/check-email", element: withSuspense(<CheckEmailPage />) },
       { path: "/verify", element: withSuspense(<VerifyEmailPage />) },
+      { path: "/join", element: withSuspense(<JoinPage />) },
     ],
   },
   {
