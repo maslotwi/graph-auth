@@ -4,6 +4,9 @@ go 1.26.3
 
 require (
 	github.com/gofiber/fiber/v3 v3.3.0
+	github.com/google/uuid v1.6.0
+	github.com/neo4j/neo4j-go-driver/v5 v5.28.4
+	github.com/redis/go-redis/v9 v9.20.1
 	github.com/swaggo/swag v1.16.6
 )
 
@@ -19,15 +22,12 @@ require (
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/gofiber/schema v1.7.1 // indirect
 	github.com/gofiber/utils/v2 v2.0.6 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/mailru/easyjson v0.7.6 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.22 // indirect
-	github.com/neo4j/neo4j-go-driver/v5 v5.28.4 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/redis/go-redis/v9 v9.20.1 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasthttp v1.71.0 // indirect
