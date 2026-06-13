@@ -8,6 +8,84 @@ info:
   title: Graph Auth
   version: "1.0"
 paths:
+  /api/auth/session/consume-code:
+    post:
+      consumes:
+      - application/json
+      description: Redeems a valid 6-digit delegation code to provision a new child
+        session node in the Neo4j provenance graph.
+      parameters:
+      - description: JSON body containing the 6-digit code and identifying device
+          name
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns a brand new persistent session token and active scopes
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: The code has expired, been used, or is mathematically invalid
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "403":
+          description: Graph constraints prevented attachment (e.g. parent session
+            was revoked)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Consume Session Invitation Code
+      tags:
+      - Session Delegation
+  /api/auth/session/generate-code:
+    post:
+      consumes:
+      - application/json
+      description: Generates a temporary, single-use 6-digit code or URL link from
+        an active session to invite a new device.
+      parameters:
+      - description: Active Session Token of Generator Device
+        in: header
+        name: X-Session-Token
+        required: true
+        type: string
+      - description: Desired scopes for the target device
+        in: body
+        name: body
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns the 6-digit code, direct link, and TTL expiry
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized due to missing or invalid session context
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal failure generating crypto code or saving to cache
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Generate Session Invitation Code
+      tags:
+      - Session Delegation
   /api/health:
     get:
       description: Returns the health status of the API
@@ -23,4 +101,124 @@ paths:
       summary: Health Check
       tags:
       - System
+  /api/oauth/authorize:
+    get:
+      description: Evaluates device state. Redirects authenticated devices to a consent
+        screen, and unauthenticated devices to the session delegation flow.
+      parameters:
+      - description: OAuth2 Client ID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: OAuth2 Redirect URI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: OAuth2 State string
+        in: query
+        name: state
+        required: true
+        type: string
+      - description: Existing Neo4j Session Token
+        in: header
+        name: X-Session-Token
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns the status and the next frontend URL to redirect to
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Missing required OAuth2 parameters
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Authorize SSO Request
+      tags:
+      - OAuth2 SSO
+  /api/oauth/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Verifies the active session and generates a temporary, high-entropy
+        OAuth2 authorization code.
+      parameters:
+      - description: Active Neo4j Session Token
+        in: header
+        name: X-Session-Token
+        required: true
+        type: string
+      - description: JSON body containing client_id, redirect_uri, and state
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns the callback URL containing the auth code
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid payload
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Session invalid or revoked
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Confirm SSO Login
+      tags:
+      - OAuth2 SSO
+  /api/oauth/token:
+    post:
+      consumes:
+      - application/json
+      description: Consumes a short-lived authorization code and issues a signed JWT
+        access token backed by Redis.
+      parameters:
+      - description: JSON body containing code, client_id, and client_secret
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns the standard OAuth2 JWT access token payload
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request format
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Invalid, expired, or already consumed authorization code
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Exchange Auth Code for JWT
+      tags:
+      - OAuth2 SSO
 swagger: "2.0"

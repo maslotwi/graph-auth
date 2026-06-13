@@ -4,9 +4,10 @@ package main
 
 import (
 	"github.com/maslotwi/graph-auth/api"
+	"github.com/maslotwi/graph-auth/helpers/environment"
 )
 
 func main() {
-	port := 8080
-	api.RunAPIServer(port)
+	environment.LoadEnv()
+	api.RunAPIServer()
 }
