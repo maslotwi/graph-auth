@@ -1,4 +1,102 @@
 basePath: /
+definitions:
+  api.AuthorizeResponse:
+    properties:
+      message:
+        type: string
+      next_url:
+        type: string
+      status:
+        example: authenticated
+        type: string
+    type: object
+  api.ConfirmLoginRequest:
+    properties:
+      client_id:
+        type: string
+      redirect_uri:
+        type: string
+      state:
+        type: string
+    type: object
+  api.ConfirmLoginResponse:
+    properties:
+      redirect_to:
+        type: string
+      status:
+        example: success
+        type: string
+    type: object
+  api.ConsumeDelegationCodeRequest:
+    properties:
+      code:
+        type: string
+      device_name:
+        type: string
+    type: object
+  api.ConsumeDelegationCodeResponse:
+    properties:
+      scopes:
+        items:
+          type: string
+        type: array
+      session_token:
+        type: string
+      status:
+        example: authenticated
+        type: string
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        example: invalid_request
+        type: string
+    type: object
+  api.GenerateDelegationCodeRequest:
+    properties:
+      scopes:
+        items:
+          type: string
+        type: array
+    type: object
+  api.GenerateDelegationCodeResponse:
+    properties:
+      code:
+        type: string
+      expires_in:
+        type: integer
+      link:
+        type: string
+    type: object
+  api.HealthResponse:
+    properties:
+      status:
+        example: ok
+        type: string
+    type: object
+  api.TokenExchangeRequest:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      code:
+        type: string
+    type: object
+  api.TokenExchangeResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      scopes:
+        items:
+          type: string
+        type: array
+      token_type:
+        example: Bearer
+        type: string
+    type: object
 info:
   contact: {}
   description: This is the core REST API for Graph Auth.
@@ -21,28 +119,27 @@ paths:
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/api.ConsumeDelegationCodeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Returns a brand new persistent session token and active scopes
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/api.ConsumeDelegationCodeResponse'
+        "400":
+          description: Invalid request format
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
         "401":
           description: The code has expired, been used, or is mathematically invalid
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
         "403":
           description: Graph constraints prevented attachment (e.g. parent session
             was revoked)
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Consume Session Invitation Code
       tags:
       - Session Delegation
@@ -62,27 +159,22 @@ paths:
         in: body
         name: body
         schema:
-          type: object
+          $ref: '#/definitions/api.GenerateDelegationCodeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Returns the 6-digit code, direct link, and TTL expiry
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/api.GenerateDelegationCodeResponse'
         "401":
           description: Unauthorized due to missing or invalid session context
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
         "500":
           description: Internal failure generating crypto code or saving to cache
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Generate Session Invitation Code
       tags:
       - Session Delegation
@@ -95,9 +187,7 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.HealthResponse'
       summary: Health Check
       tags:
       - System
@@ -131,15 +221,11 @@ paths:
         "200":
           description: Returns the status and the next frontend URL to redirect to
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.AuthorizeResponse'
         "400":
           description: Missing required OAuth2 parameters
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Authorize SSO Request
       tags:
       - OAuth2 SSO
@@ -160,28 +246,22 @@ paths:
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/api.ConfirmLoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Returns the callback URL containing the auth code
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ConfirmLoginResponse'
         "400":
           description: Invalid payload
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
         "401":
           description: Session invalid or revoked
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Confirm SSO Login
       tags:
       - OAuth2 SSO
@@ -197,27 +277,22 @@ paths:
         name: body
         required: true
         schema:
-          type: object
+          $ref: '#/definitions/api.TokenExchangeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Returns the standard OAuth2 JWT access token payload
           schema:
-            additionalProperties: true
-            type: object
+            $ref: '#/definitions/api.TokenExchangeResponse'
         "400":
           description: Invalid request format
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
         "401":
           description: Invalid, expired, or already consumed authorization code
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/api.ErrorResponse'
       summary: Exchange Auth Code for JWT
       tags:
       - OAuth2 SSO

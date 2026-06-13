@@ -1,11 +1,16 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/maslotwi/graph-auth/db"
+	"github.com/maslotwi/graph-auth/helpers/environment"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // RegisterDelegationRoutes adds your new camera-less SSO endpoints
@@ -23,44 +28,49 @@ func RegisterDelegationRoutes(app *fiber.App) {
 // @Accept              json
 // @Produce             json
 // @Param               X-Session-Token header string true "Active Session Token of Generator Device"
-// @Param               body body object false "Desired scopes for the target device"
-// @Success             200 {object} map[string]interface{} "Returns the 6-digit code, direct link, and TTL expiry"
-// @Failure             401 {object} map[string]string "Unauthorized due to missing or invalid session context"
-// @Failure             500 {object} map[string]string "Internal failure generating crypto code or saving to cache"
+// @Param               body body GenerateDelegationCodeRequest false "Desired scopes for the target device"
+// @Success             200 {object} GenerateDelegationCodeResponse "Returns the 6-digit code, direct link, and TTL expiry"
+// @Failure             401 {object} ErrorResponse "Unauthorized due to missing or invalid session context"
+// @Failure             500 {object} ErrorResponse "Internal failure generating crypto code or saving to cache"
 // @Router              /api/auth/session/generate-code [post]
 func GenerateDelegationCode(c fiber.Ctx) error {
-	// 1. Identify who is generating this code via their active session token
 	parentSessionToken := c.Get("X-Session-Token")
 	if parentSessionToken == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing_session_context"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "missing_session_context"})
 	}
 
-	var body struct {
-		Scopes []string `json:"scopes"` // e.g., ["read", "write"] or restricted ["read"]
+	if !verifyTokenInGraph(parentSessionToken) {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "invalid_session_context"})
 	}
+
+	var body GenerateDelegationCodeRequest
 	if err := c.Bind().Body(&body); err != nil {
-		body.Scopes = []string{"read"} // fallback to safe default
+		body.Scopes = nil
 	}
+	scopes := normalizeScopes(body.Scopes)
 
-	// 2. Generate a secure, user-friendly 6-digit numeric code
 	sixDigitCode, err := generateSixDigitCode()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "crypto_failure"})
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "crypto_failure"})
 	}
 
-	// 3. Store the delegation intent in Redis linked to Parent's Token
-	// In production, serialize this as a JSON string containing parentSessionToken and body.Scopes
-	redisPayload := fmt.Sprintf(`{"parent":"%s","scopes":["%s"]}`, parentSessionToken, body.Scopes[0])
-	err = storeInRedis("delegate:"+sixDigitCode, redisPayload, 120) // 2 minute expiry
+	payload, err := json.Marshal(delegationPayload{
+		Parent: parentSessionToken,
+		Scopes: scopes,
+	})
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "cache_failure"})
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "serialization_failure"})
 	}
 
-	// 4. Return the code and the absolute URL that Phone B can open directly if rendered as a QR code
-	return c.JSON(fiber.Map{
-		"code":       sixDigitCode,
-		"link":       fmt.Sprintf("https://yourdomain.com/login?code=%s", sixDigitCode),
-		"expires_in": 120,
+	err = storeInRedis("delegate:"+sixDigitCode, string(payload), 120)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "cache_failure"})
+	}
+
+	return c.JSON(GenerateDelegationCodeResponse{
+		Code:      sixDigitCode,
+		Link:      fmt.Sprintf("%s/login?code=%s", environment.BaseUrl, sixDigitCode),
+		ExpiresIn: 120,
 	})
 }
 
@@ -70,72 +80,106 @@ func GenerateDelegationCode(c fiber.Ctx) error {
 // @Tags                Session Delegation
 // @Accept              json
 // @Produce             json
-// @Param               body body object true "JSON body containing the 6-digit code and identifying device name"
-// @Success             200 {object} map[string]interface{} "Returns a brand new persistent session token and active scopes"
-// @Failure             401 {object} map[string]string "The code has expired, been used, or is mathematically invalid"
-// @Failure             403 {object} map[string]string "Graph constraints prevented attachment (e.g. parent session was revoked)"
+// @Param               body body ConsumeDelegationCodeRequest true "JSON body containing the 6-digit code and identifying device name"
+// @Success             200 {object} ConsumeDelegationCodeResponse "Returns a brand new persistent session token and active scopes"
+// @Failure             400 {object} ErrorResponse "Invalid request format"
+// @Failure             401 {object} ErrorResponse "The code has expired, been used, or is mathematically invalid"
+// @Failure             403 {object} ErrorResponse "Graph constraints prevented attachment (e.g. parent session was revoked)"
 // @Router              /api/auth/session/consume-code [post]
 func ConsumeDelegationCode(c fiber.Ctx) error {
-	var body struct {
-		Code       string `json:"code"`
-		DeviceName string `json:"device_name"` // e.g., "Computer B" or "Phone B"
-	}
+	var body ConsumeDelegationCodeRequest
 	if err := c.Bind().Body(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid_request"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_request"})
 	}
 
-	// 1. Fetch metadata from Redis using the code
-	payload, err := getFromRedis("delegate:" + body.Code)
+	if body.Code == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_request"})
+	}
+
+	payload, err := consumeFromRedis("delegate:" + body.Code)
 	if err != nil || payload == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "code_expired_or_invalid"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "code_expired_or_invalid"})
 	}
 
-	// 2. Erase code from Redis immediately so it is strictly single-use (One-Time Passcode rule)
-	_ = deleteFromRedis("delegate:" + body.Code)
+	var delegation delegationPayload
+	if err := json.Unmarshal([]byte(payload), &delegation); err != nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "code_expired_or_invalid"})
+	}
 
-	// 3. Extract the parent session context from the payload (stub logic)
-	parentSessionToken := "extracted_from_payload"
-	allowedScopes := []string{"read"}
+	deviceName := body.DeviceName
+	if deviceName == "" {
+		deviceName = "New Device"
+	}
 
-	// 4. Execute the Neo4j insertion logic to append this device directly to the lineage tree
+	allowedScopes := normalizeScopes(delegation.Scopes)
 	newDeviceSessionToken := generateSecureUUID()
-	err = insertChildSessionIntoGraph(parentSessionToken, newDeviceSessionToken, body.DeviceName, allowedScopes)
+	err = insertChildSessionIntoGraph(delegation.Parent, newDeviceSessionToken, deviceName, allowedScopes)
 	if err != nil {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "session_delegation_denied_or_parent_revoked"})
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
 	}
 
-	// 5. Hand back a fresh session token to the new device!
-	return c.JSON(fiber.Map{
-		"session_token": newDeviceSessionToken,
-		"scopes":        allowedScopes,
-		"status":        "authenticated",
+	return c.JSON(ConsumeDelegationCodeResponse{
+		SessionToken: newDeviceSessionToken,
+		Scopes:       allowedScopes,
+		Status:       "authenticated",
 	})
 }
 
-// ------------------------------------------------------------------------
-// CRYPTO HELPERS
-// ------------------------------------------------------------------------
+func normalizeScopes(scopes []string) []string {
+	if len(scopes) == 0 {
+		return []string{"read"}
+	}
+	return scopes
+}
 
 func generateSixDigitCode() (string, error) {
-	maxNum := big.NewInt(900000) // 0 to 899999
+	maxNum := big.NewInt(900000)
 	n, err := rand.Int(rand.Reader, maxNum)
 	if err != nil {
 		return "", err
 	}
-	// Shift up to range 100000 - 999999
 	return fmt.Sprintf("%d", n.Int64()+100000), nil
 }
 
-// ------------------------------------------------------------------------
-// EXTRA STUBS FOR YOUR MAIN CONTEXT
-// ------------------------------------------------------------------------
-
-func deleteFromRedis(key string) error {
-	// TODO: Implement redis DEL command
-	return nil
-}
-
 func insertChildSessionIntoGraph(parentToken, childToken, deviceName string, scopes []string) error {
-	// TODO: Cypher statement connecting (p:Session {token: parentToken})-[s:SPAWNED]->(c:Session {token: childToken})
-	return nil
+	driver, err := db.Neo4j()
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer session.Close(ctx)
+
+	_, err = session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		result, err := tx.Run(ctx, `
+			MATCH (parent:Session {token: $parentToken})
+			WHERE coalesce(parent.is_active, true) = true
+			CREATE (child:Session {
+				token: $childToken,
+				device_name: $deviceName,
+				scopes: $scopes,
+				is_active: true,
+				created_at: datetime()
+			})
+			CREATE (parent)-[:SPAWNED {created_at: datetime()}]->(child)
+			RETURN child.token AS token
+		`, map[string]any{
+			"parentToken": parentToken,
+			"childToken":  childToken,
+			"deviceName":  deviceName,
+			"scopes":      scopes,
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if result.Next(ctx) {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("parent session not found or inactive")
+	})
+
+	return err
 }

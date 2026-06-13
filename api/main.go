@@ -20,12 +20,10 @@ import (
 // @Description         Returns the health status of the API
 // @Tags                System
 // @Produce             json
-// @Success             200 {object} map[string]string
+// @Success             200 {object} HealthResponse
 // @Router              /api/health [get]
 func healthCheck(c fiber.Ctx) error {
-	return c.JSON(fiber.Map{
-		"status": "ok",
-	})
+	return c.JSON(HealthResponse{Status: "ok"})
 }
 
 // RunAPIServer is the main api entrypoint

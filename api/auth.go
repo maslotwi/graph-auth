@@ -1,9 +1,15 @@
 package api
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
+	"github.com/maslotwi/graph-auth/db"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+	"github.com/redis/go-redis/v9"
 )
 
 // RegisterOAuthRoutes registers the central SSO engine routes
@@ -24,8 +30,8 @@ func RegisterOAuthRoutes(app *fiber.App) {
 // @Param               redirect_uri query string true "OAuth2 Redirect URI"
 // @Param               state query string true "OAuth2 State string"
 // @Param               X-Session-Token header string false "Existing Neo4j Session Token"
-// @Success             200 {object} map[string]string "Returns the status and the next frontend URL to redirect to"
-// @Failure             400 {object} map[string]string "Missing required OAuth2 parameters"
+// @Success             200 {object} AuthorizeResponse "Returns the status and the next frontend URL to redirect to"
+// @Failure             400 {object} ErrorResponse "Missing required OAuth2 parameters"
 // @Router              /api/oauth/authorize [get]
 func HandleAuthorize(c fiber.Ctx) error {
 	clientID := c.Query("client_id")
@@ -33,7 +39,7 @@ func HandleAuthorize(c fiber.Ctx) error {
 	state := c.Query("state")
 
 	if clientID == "" || redirectURI == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid_oauth_parameters"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_oauth_parameters"})
 	}
 
 	// Check if this specific browser already holds a valid root session token
@@ -51,19 +57,17 @@ func HandleAuthorize(c fiber.Ctx) error {
 
 	// CASE 1: Device is already verified in your Graph
 	if isDeviceAuthenticated {
-		return c.JSON(fiber.Map{
-			"status":   "authenticated",
-			"message":  "Device is recognized. Prompt user for consent.",
-			"next_url": "/frontend/sso-consent" + flowContext,
+		return c.JSON(AuthorizeResponse{
+			Status:  "authenticated",
+			Message: "Device is recognized. Prompt user for consent.",
+			NextURL: "/frontend/sso-consent" + flowContext,
 		})
 	}
 
-	// CASE 2: Device is totally unauthenticated
-	// Route them directly to your modern 6-digit / QR delegation screen to get linked to the graph
-	return c.JSON(fiber.Map{
-		"status":   "unauthenticated",
-		"message":  "Device unrecognized. Pair this device with an active device to log in.",
-		"next_url": "/frontend/link-device" + flowContext,
+	return c.JSON(AuthorizeResponse{
+		Status:  "unauthenticated",
+		Message: "Device unrecognized. Pair this device with an active device to log in.",
+		NextURL: "/frontend/link-device" + flowContext,
 	})
 }
 
@@ -74,24 +78,20 @@ func HandleAuthorize(c fiber.Ctx) error {
 // @Accept              json
 // @Produce             json
 // @Param               X-Session-Token header string true "Active Neo4j Session Token"
-// @Param               body body object true "JSON body containing client_id, redirect_uri, and state"
-// @Success             200 {object} map[string]string "Returns the callback URL containing the auth code"
-// @Failure             400 {object} map[string]string "Invalid payload"
-// @Failure             401 {object} map[string]string "Session invalid or revoked"
+// @Param               body body ConfirmLoginRequest true "JSON body containing client_id, redirect_uri, and state"
+// @Success             200 {object} ConfirmLoginResponse "Returns the callback URL containing the auth code"
+// @Failure             400 {object} ErrorResponse "Invalid payload"
+// @Failure             401 {object} ErrorResponse "Session invalid or revoked"
 // @Router              /api/oauth/confirm [post]
 func HandleConfirmLogin(c fiber.Ctx) error {
-	var body struct {
-		ClientID    string `json:"client_id"`
-		RedirectURI string `json:"redirect_uri"`
-		State       string `json:"state"`
-	}
+	var body ConfirmLoginRequest
 	if err := c.Bind().Body(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid_payload"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_payload"})
 	}
 
 	deviceToken := c.Get("X-Session-Token")
 	if !verifyTokenInGraph(deviceToken) {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "session_invalidated_during_flow"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "session_invalidated_during_flow"})
 	}
 
 	// 1. Generate a temporary, high-entropy OAuth Authorization Code
@@ -105,9 +105,9 @@ func HandleConfirmLogin(c fiber.Ctx) error {
 
 	// 3. Hand back the callback target. The frontend will physically redirect the browser here.
 	callbackURL := fmt.Sprintf("%s?code=%s&state=%s", body.RedirectURI, authCode, body.State)
-	return c.JSON(fiber.Map{
-		"status":      "success",
-		"redirect_to": callbackURL,
+	return c.JSON(ConfirmLoginResponse{
+		Status:     "success",
+		RedirectTo: callbackURL,
 	})
 }
 
@@ -117,25 +117,21 @@ func HandleConfirmLogin(c fiber.Ctx) error {
 // @Tags                OAuth2 SSO
 // @Accept              json
 // @Produce             json
-// @Param               body body object true "JSON body containing code, client_id, and client_secret"
-// @Success             200 {object} map[string]interface{} "Returns the standard OAuth2 JWT access token payload"
-// @Failure             400 {object} map[string]string "Invalid request format"
-// @Failure             401 {object} map[string]string "Invalid, expired, or already consumed authorization code"
+// @Param               body body TokenExchangeRequest true "JSON body containing code, client_id, and client_secret"
+// @Success             200 {object} TokenExchangeResponse "Returns the standard OAuth2 JWT access token payload"
+// @Failure             400 {object} ErrorResponse "Invalid request format"
+// @Failure             401 {object} ErrorResponse "Invalid, expired, or already consumed authorization code"
 // @Router              /api/oauth/token [post]
 func HandleTokenExchange(c fiber.Ctx) error {
-	var body struct {
-		Code         string `json:"code"`
-		ClientID     string `json:"client_id"`
-		ClientSecret string `json:"client_secret"` // To verify Service A's identity
-	}
+	var body TokenExchangeRequest
 	if err := c.Bind().Body(&body); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid_request"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_request"})
 	}
 
 	// 1. Fetch the code mapping out of Redis
 	payload, err := getFromRedis("code:" + body.Code)
 	if err != nil || payload == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "invalid_or_expired_code"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "invalid_or_expired_code"})
 	}
 
 	// 2. Immediately burn the code so it cannot be replayed (Strict OAuth2 Security)
@@ -150,11 +146,11 @@ func HandleTokenExchange(c fiber.Ctx) error {
 	_ = storeInRedis("access:"+tempSessionID, "valid", 900) // 15 Minute session
 
 	// 4. Return standard compliant OAuth2 access token details back to Service A
-	return c.JSON(fiber.Map{
-		"access_token": jwtToken,
-		"token_type":   "Bearer",
-		"expires_in":   900,
-		"scopes":       mockScopes,
+	return c.JSON(TokenExchangeResponse{
+		AccessToken: jwtToken,
+		TokenType:   "Bearer",
+		ExpiresIn:   900,
+		Scopes:      mockScopes,
 	})
 }
 
@@ -163,23 +159,80 @@ func HandleTokenExchange(c fiber.Ctx) error {
 // ------------------------------------------------------------------------
 
 func verifyTokenInGraph(token string) bool {
-	// TODO: Cypher query to check if node exists and is_active == true
-	return token == "valid_mock_session"
+	if token == "" {
+		return false
+	}
+
+	driver, err := db.Neo4j()
+	if err != nil {
+		return false
+	}
+
+	ctx := context.Background()
+	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer session.Close(ctx)
+
+	result, err := session.Run(ctx, `
+		MATCH (s:Session {token: $token})
+		WHERE coalesce(s.is_active, true) = true
+		RETURN count(s) > 0 AS active
+	`, map[string]any{"token": token})
+	if err != nil {
+		return false
+	}
+
+	if result.Next(ctx) {
+		active, _ := result.Record().Get("active")
+		if b, ok := active.(bool); ok {
+			return b
+		}
+	}
+
+	return false
 }
 
 func generateSecureUUID() string {
-	// TODO: Use github.com/google/uuid
-	return "mock-uuid-1234"
+	return uuid.NewString()
 }
 
 func storeInRedis(key string, value string, ttlSeconds int) error {
-	// TODO: Implement redis SETEX
-	return nil
+	client, err := db.Redis()
+	if err != nil {
+		return err
+	}
+	return client.Set(context.Background(), key, value, time.Duration(ttlSeconds)*time.Second).Err()
 }
 
 func getFromRedis(key string) (string, error) {
-	// TODO: Implement redis GET
-	return "pending", nil
+	client, err := db.Redis()
+	if err != nil {
+		return "", err
+	}
+	val, err := client.Get(context.Background(), key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	return val, err
+}
+
+func deleteFromRedis(key string) error {
+	client, err := db.Redis()
+	if err != nil {
+		return err
+	}
+	return client.Del(context.Background(), key).Err()
+}
+
+func consumeFromRedis(key string) (string, error) {
+	client, err := db.Redis()
+	if err != nil {
+		return "", err
+	}
+	val, err := client.GetDel(context.Background(), key).Result()
+	if err == redis.Nil {
+		return "", nil
+	}
+	return val, err
 }
 
 func extractSessionFromJWT(authHeader string) (string, error) {
