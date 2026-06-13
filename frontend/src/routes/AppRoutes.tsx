@@ -6,9 +6,7 @@ import { RequireRootSetup } from "@/components/RequireRootSetup"
 import AppLayout from "@/layouts/AppLayout"
 import PublicLayout from "@/layouts/PublicLayout"
 
-function lazyPage(
-  importer: () => Promise<{ default: ComponentType }>
-) {
+function lazyPage(importer: () => Promise<{ default: ComponentType }>) {
   return lazy(importer)
 }
 

@@ -64,7 +64,10 @@ export async function handleMockRequest(
     if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
     const session = getSession(token)
     if (!session?.node) return jsonResponse({ message: "Unauthorized" }, 401)
-    const body = request.body as { scopes?: GraphNode["permissions"]; node_id?: string }
+    const body = request.body as {
+      scopes?: GraphNode["permissions"]
+      node_id?: string
+    }
     const parentNodeId = body.node_id ?? session.node.id
     const scopes = body.scopes ?? session.node.permissions
     return jsonResponse(createDelegationCode(parentNodeId, scopes))
@@ -73,8 +76,12 @@ export async function handleMockRequest(
   if (method === "POST" && path === "/api/auth/session/consume-code") {
     const body = request.body as { code?: string; device_name?: string }
     if (!body.code) return jsonResponse({ message: "Code is required." }, 400)
-    const result = consumeDelegationCode(body.code, body.device_name ?? "New Device")
-    if (!result) return jsonResponse({ message: "Code expired or invalid." }, 401)
+    const result = consumeDelegationCode(
+      body.code,
+      body.device_name ?? "New Device"
+    )
+    if (!result)
+      return jsonResponse({ message: "Code expired or invalid." }, 401)
     return jsonResponse(result)
   }
 
@@ -173,7 +180,8 @@ export async function handleMockRequest(
   if (method === "POST" && invalidateMatch) {
     const token = getBearerToken(request.headers)
     if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
-    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
+    if (!getSession(token))
+      return jsonResponse({ message: "Unauthorized" }, 401)
 
     const nodeId = invalidateMatch[1]
     const ok = invalidateNode(nodeId)
@@ -184,9 +192,15 @@ export async function handleMockRequest(
   if (method === "POST" && path === "/api/oauth/confirm") {
     const token = getBearerToken(request.headers)
     if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
-    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
-    const body = request.body as { client_id?: string; redirect_uri?: string; state?: string }
-    if (!body.redirect_uri) return jsonResponse({ message: "redirect_uri is required." }, 400)
+    if (!getSession(token))
+      return jsonResponse({ message: "Unauthorized" }, 401)
+    const body = request.body as {
+      client_id?: string
+      redirect_uri?: string
+      state?: string
+    }
+    if (!body.redirect_uri)
+      return jsonResponse({ message: "redirect_uri is required." }, 400)
     const code = `mock-code-${crypto.randomUUID().slice(0, 8)}`
     const redirectTo = `${body.redirect_uri}?code=${code}&state=${body.state ?? ""}`
     return jsonResponse({ status: "success", redirect_to: redirectTo })

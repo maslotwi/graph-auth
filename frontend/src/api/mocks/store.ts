@@ -8,7 +8,10 @@ type Session = {
 
 const sessions = new Map<string, Session>()
 const nodeChildren = new Map<string, GraphNode[]>()
-const delegationCodes = new Map<string, { parentNodeId: string; scopes: GraphNode["permissions"] }>()
+const delegationCodes = new Map<
+  string,
+  { parentNodeId: string; scopes: GraphNode["permissions"] }
+>()
 
 export function createSession(email: string): string {
   const token = `mock-token-${crypto.randomUUID()}`
@@ -99,7 +102,11 @@ export function invalidateNode(id: string): boolean {
 function seedDemoChildren(root: GraphNode) {
   const laptop = createChildNode(root.id, "Laptop", ["read", "write", "admin"])
   createChildNode(root.id, "Phone", ["read"])
-  const work = createChildNode(laptop.id, "Work Profile", ["read", "write", "sso"])
+  const work = createChildNode(laptop.id, "Work Profile", [
+    "read",
+    "write",
+    "sso",
+  ])
   createChildNode(work.id, "CI Runner", ["read", "write"])
 }
 
@@ -128,7 +135,11 @@ export function consumeDelegationCode(
   )
   const newToken = `mock-token-${crypto.randomUUID()}`
   sessions.set(newToken, { email: "", node: childNode })
-  return { session_token: newToken, scopes: delegation.scopes, status: "authenticated" }
+  return {
+    session_token: newToken,
+    scopes: delegation.scopes,
+    status: "authenticated",
+  }
 }
 
 export function resetMockStore(): void {

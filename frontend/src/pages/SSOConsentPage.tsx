@@ -28,7 +28,9 @@ export default function SSOConsentPage() {
   useEffect(() => {
     if (isLoading) return
     if (!isAuthenticated) {
-      const returnTo = encodeURIComponent(window.location.pathname + window.location.search)
+      const returnTo = encodeURIComponent(
+        window.location.pathname + window.location.search
+      )
       void navigate(`/login?return=${returnTo}`, { replace: true })
     }
   }, [isAuthenticated, isLoading, navigate])
@@ -48,10 +50,16 @@ export default function SSOConsentPage() {
 
   async function handleConfirm() {
     try {
-      const { redirect_to } = await confirmSSO({ client_id: clientId, redirect_uri: redirectUri, state })
+      const { redirect_to } = await confirmSSO({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        state,
+      })
       window.location.href = redirect_to
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : "Failed to confirm login.")
+      toast.error(
+        err instanceof ApiError ? err.message : "Failed to confirm login."
+      )
     }
   }
 

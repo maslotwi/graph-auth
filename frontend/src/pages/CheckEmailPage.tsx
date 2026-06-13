@@ -71,7 +71,11 @@ export default function CheckEmailPage() {
             {isResending ? "Resending..." : "Resend verification email"}
           </Button>
         ) : null}
-        <Button variant="ghost" className="w-full" render={<Link to="/register" />}>
+        <Button
+          variant="ghost"
+          className="w-full"
+          render={<Link to="/register" />}
+        >
           Use a different email
         </Button>
       </CardFooter>

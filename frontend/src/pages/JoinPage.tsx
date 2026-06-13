@@ -49,7 +49,9 @@ export default function JoinPage() {
       toast.success("Device linked successfully")
       void navigate("/", { replace: true })
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Invalid or expired code.")
+      setError(
+        err instanceof ApiError ? err.message : "Invalid or expired code."
+      )
     } finally {
       setIsSubmitting(false)
     }
