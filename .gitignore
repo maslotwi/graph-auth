@@ -27,6 +27,9 @@ go.work.sum
 # env file
 .env
 
+# Docker dev data
+.cache/
+
 # Editor/IDE
 # .idea/
 # .vscode/
