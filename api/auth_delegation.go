@@ -17,8 +17,8 @@ import (
 func RegisterDelegationRoutes(app *fiber.App) {
 	auth := app.Group("/api/auth/session")
 
-	auth.Post("/generate-code", GenerateDelegationCode) // Called by Computer A (Auth Required)
-	auth.Post("/consume-code", ConsumeDelegationCode)   // Called by Computer B or Phone B (Public)
+	auth.Post("/generate-code", RequireSession, GenerateDelegationCode) // Auth required
+	auth.Post("/consume-code", ConsumeDelegationCode)                   // Public
 }
 
 // GenerateDelegationCode handles Scenario 1 & 2 (Step 1): Active device creates an invitation code
@@ -34,14 +34,7 @@ func RegisterDelegationRoutes(app *fiber.App) {
 // @Failure             500 {object} ErrorResponse "Internal failure generating crypto code or saving to cache"
 // @Router              /api/auth/session/generate-code [post]
 func GenerateDelegationCode(c fiber.Ctx) error {
-	parentSessionToken := c.Get("X-Session-Token")
-	if parentSessionToken == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "missing_session_context"})
-	}
-
-	if !verifyTokenInGraph(parentSessionToken) {
-		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "invalid_session_context"})
-	}
+	parentSessionToken := c.Locals("sessionToken").(string)
 
 	var body GenerateDelegationCodeRequest
 	if err := c.Bind().Body(&body); err != nil {
@@ -69,7 +62,7 @@ func GenerateDelegationCode(c fiber.Ctx) error {
 
 	return c.JSON(GenerateDelegationCodeResponse{
 		Code:      sixDigitCode,
-		Link:      fmt.Sprintf("%s/login?code=%s", environment.BaseUrl, sixDigitCode),
+		Link:      fmt.Sprintf("%s/join?code=%s", environment.FrontendURL, sixDigitCode),
 		ExpiresIn: 120,
 	})
 }
