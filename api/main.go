@@ -41,8 +41,7 @@ func RunAPIServer(port int) {
 
 	app := fiber.New()
 
-	api := app.Group("/api")
-	api.Get("/health", healthCheck)
+	app.Get("/health", healthCheck)
 
 	app.Get("/swagger.json", func(c fiber.Ctx) error {
 		// Unpack the string and the error
