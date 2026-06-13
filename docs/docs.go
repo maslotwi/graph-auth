@@ -19,6 +19,118 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/session/consume-code": {
+            "post": {
+                "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Session Delegation"
+                ],
+                "summary": "Consume Session Invitation Code",
+                "parameters": [
+                    {
+                        "description": "JSON body containing the 6-digit code and identifying device name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns a brand new persistent session token and active scopes",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "The code has expired, been used, or is mathematically invalid",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Graph constraints prevented attachment (e.g. parent session was revoked)",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/session/generate-code": {
+            "post": {
+                "description": "Generates a temporary, single-use 6-digit code or URL link from an active session to invite a new device.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Session Delegation"
+                ],
+                "summary": "Generate Session Invitation Code",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Active Session Token of Generator Device",
+                        "name": "X-Session-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Desired scopes for the target device",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the 6-digit code, direct link, and TTL expiry",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized due to missing or invalid session context",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal failure generating crypto code or saving to cache",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Returns the health status of the API",
@@ -32,6 +144,182 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/oauth/authorize": {
+            "get": {
+                "description": "Evaluates device state. Redirects authenticated devices to a consent screen, and unauthenticated devices to the session delegation flow.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2 SSO"
+                ],
+                "summary": "Authorize SSO Request",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth2 Client ID",
+                        "name": "client_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth2 Redirect URI",
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth2 State string",
+                        "name": "state",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Existing Neo4j Session Token",
+                        "name": "X-Session-Token",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the status and the next frontend URL to redirect to",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Missing required OAuth2 parameters",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/oauth/confirm": {
+            "post": {
+                "description": "Verifies the active session and generates a temporary, high-entropy OAuth2 authorization code.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2 SSO"
+                ],
+                "summary": "Confirm SSO Login",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Active Neo4j Session Token",
+                        "name": "X-Session-Token",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "JSON body containing client_id, redirect_uri, and state",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the callback URL containing the auth code",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Session invalid or revoked",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/oauth/token": {
+            "post": {
+                "description": "Consumes a short-lived authorization code and issues a signed JWT access token backed by Redis.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2 SSO"
+                ],
+                "summary": "Exchange Auth Code for JWT",
+                "parameters": [
+                    {
+                        "description": "JSON body containing code, client_id, and client_secret",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "object"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the standard OAuth2 JWT access token payload",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Invalid, expired, or already consumed authorization code",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

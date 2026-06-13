@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/maslotwi/graph-auth/docs"
+	"github.com/maslotwi/graph-auth/helpers/environment"
 	"github.com/swaggo/swag"
 )
 
@@ -35,12 +36,8 @@ func healthCheck(c fiber.Ctx) error {
 // @license.name        MIT
 // @license.url         https://opensource.org/licenses/MIT
 // @BasePath            /
-func RunAPIServer(port int) {
-	if envHost := os.Getenv("API_HOST"); envHost != "" {
-		docs.SwaggerInfo.Host = envHost
-	} else {
-		docs.SwaggerInfo.Host = fmt.Sprintf("localhost:%d", port)
-	}
+func RunAPIServer() {
+	docs.SwaggerInfo.Host = environment.BaseUrl
 
 	app := fiber.New()
 
@@ -54,6 +51,8 @@ func RunAPIServer(port int) {
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 	}))
+	RegisterOAuthRoutes(app)
+	RegisterDelegationRoutes(app)
 
 	// API routes
 	api := app.Group("/api")
@@ -61,6 +60,7 @@ func RunAPIServer(port int) {
 
 	// Swagger docs (kept at root so /docs and /swagger.json are always reachable)
 	app.Get("/swagger.json", func(c fiber.Ctx) error {
+		// Unpack the string and the error
 		doc, err := swag.ReadDoc()
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).SendString("Failed to load swagger docs")
@@ -96,5 +96,5 @@ func RunAPIServer(port int) {
 		}))
 	}
 
-	log.Fatal(app.Listen(fmt.Sprintf(":%d", port)))
+	log.Fatal(app.Listen(fmt.Sprintf(":" + environment.Port)))
 }
