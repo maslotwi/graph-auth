@@ -3,14 +3,20 @@ MAIN_PATH=.
 FRONTEND_DIR=frontend
 
 .PHONY: all fmt doc build run clean help \
-        frontend-install frontend-build frontend-dev dev build-all
+        frontend-install frontend-build frontend-dev frontend-lint frontend-format frontend-typecheck \
+        dev build-all vet lint
 
 all: fmt doc build
 
-## fmt:         Format standard Go code across the project
+## fmt:         Format Go code
 fmt:
 	@echo "Formatting Go code..."
-	@go fmt
+	@go fmt ./...
+
+## vet:         Run go vet static analysis on all packages
+vet:
+	@echo "Running Go vet..."
+	@go vet ./...
 
 ## doc:         Format/generate Swagger docs and strictly align comments
 doc: fmt
@@ -55,9 +61,27 @@ frontend-build:
 	@echo "Building frontend..."
 	@cd $(FRONTEND_DIR) && bun run build
 
-## frontend-dev:    Start the frontend Vite dev server
+## frontend-dev:      Start the frontend Vite dev server
 frontend-dev:
 	@cd $(FRONTEND_DIR) && bun run dev
+
+## frontend-lint:     Lint frontend TypeScript with ESLint
+frontend-lint:
+	@echo "Linting frontend..."
+	@cd $(FRONTEND_DIR) && bun run lint
+
+## frontend-format:   Format frontend TypeScript with Prettier
+frontend-format:
+	@echo "Formatting frontend..."
+	@cd $(FRONTEND_DIR) && bun run format
+
+## frontend-typecheck: Type-check frontend TypeScript
+frontend-typecheck:
+	@echo "Type-checking frontend..."
+	@cd $(FRONTEND_DIR) && bun run typecheck
+
+## lint:              Run all linters (go vet + ESLint)
+lint: vet frontend-lint
 
 ## dev:          Start backend and frontend dev servers concurrently (Ctrl+C stops both)
 dev: doc
