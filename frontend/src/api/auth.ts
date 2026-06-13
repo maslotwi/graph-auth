@@ -21,3 +21,11 @@ export function verifyEmail(data: VerifyRequest): Promise<VerifyResponse> {
     auth: false,
   })
 }
+
+export function confirmSSO(data: {
+  client_id: string
+  redirect_uri: string
+  state: string
+}): Promise<{ status: string; redirect_to: string }> {
+  return apiClient("/api/oauth/confirm", { method: "POST", body: data })
+}

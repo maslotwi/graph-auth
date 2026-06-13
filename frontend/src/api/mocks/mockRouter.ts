@@ -181,6 +181,17 @@ export async function handleMockRequest(
     return jsonResponse({ message: "Node invalidated." })
   }
 
+  if (method === "POST" && path === "/api/oauth/confirm") {
+    const token = getBearerToken(request.headers)
+    if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
+    if (!getSession(token)) return jsonResponse({ message: "Unauthorized" }, 401)
+    const body = request.body as { client_id?: string; redirect_uri?: string; state?: string }
+    if (!body.redirect_uri) return jsonResponse({ message: "redirect_uri is required." }, 400)
+    const code = `mock-code-${crypto.randomUUID().slice(0, 8)}`
+    const redirectTo = `${body.redirect_uri}?code=${code}&state=${body.state ?? ""}`
+    return jsonResponse({ status: "success", redirect_to: redirectTo })
+  }
+
   if (method === "GET" && path === "/api/health") {
     return jsonResponse({ status: "ok" })
   }

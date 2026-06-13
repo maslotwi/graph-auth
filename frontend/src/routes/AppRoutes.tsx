@@ -21,6 +21,7 @@ const VerifyEmailPage = lazyPage(() => import("@/pages/VerifyEmailPage"))
 const RootNodeSetupPage = lazyPage(() => import("@/pages/RootNodeSetupPage"))
 const GraphPage = lazyPage(() => import("@/pages/GraphPage"))
 const JoinPage = lazyPage(() => import("@/pages/JoinPage"))
+const SSOConsentPage = lazyPage(() => import("@/pages/SSOConsentPage"))
 
 function PageLoader() {
   return (
@@ -43,6 +44,7 @@ export const routes: RouteObject[] = [
       { path: "/check-email", element: withSuspense(<CheckEmailPage />) },
       { path: "/verify", element: withSuspense(<VerifyEmailPage />) },
       { path: "/join", element: withSuspense(<JoinPage />) },
+      { path: "/sso/consent", element: withSuspense(<SSOConsentPage />) },
     ],
   },
   {
