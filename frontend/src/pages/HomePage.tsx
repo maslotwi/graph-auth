@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
-import { createClient, type ClientCredentials } from "@/api/clients"
+import { createClient, getClients, type ClientCredentials, type ClientSummary } from "@/api/clients"
 import { generateDelegationCode, getNodeTree, invalidateNode } from "@/api/nodes"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -295,14 +295,51 @@ function EndpointsPanel() {
   )
 }
 
+function AppRow({ app }: { app: ClientSummary }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-lg border px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">{app.name}</span>
+        <span className="font-mono text-[10px] text-muted-foreground truncate max-w-[140px]">
+          {app.client_id}
+        </span>
+      </div>
+      {app.redirect_uris.length > 0 && (
+        <div className="flex flex-wrap gap-1 pt-0.5">
+          {app.redirect_uris.map((uri) => (
+            <span key={uri} className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+              {uri}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AppsSection() {
   const { currentNode } = useAuth()
+  const [apps, setApps] = useState<ClientSummary[]>([])
+  const [isLoadingApps, setIsLoadingApps] = useState(true)
   const [name, setName] = useState("")
   const [redirectUrisRaw, setRedirectUrisRaw] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [credentials, setCredentials] = useState<ClientCredentials | null>(null)
 
   const hasClientsScope = currentNode?.permissions.includes("clients") ?? false
+
+  const loadApps = useCallback(async () => {
+    try {
+      const list = await getClients()
+      setApps(list)
+    } catch {
+      // not a hard failure — list stays empty
+    } finally {
+      setIsLoadingApps(false)
+    }
+  }, [])
+
+  useEffect(() => { void loadApps() }, [loadApps])
 
   const parsedUris = redirectUrisRaw
     .split("\n")
@@ -319,6 +356,7 @@ function AppsSection() {
       setCredentials(creds)
       setName("")
       setRedirectUrisRaw("")
+      void loadApps()
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to create app.")
     } finally {
@@ -335,8 +373,14 @@ function AppsSection() {
             Applications connected to your Graph Auth identity.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">No apps connected yet.</p>
+        <CardContent className="flex flex-col gap-3">
+          {isLoadingApps ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : apps.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No apps registered yet.</p>
+          ) : (
+            apps.map((app) => <AppRow key={app.client_id} app={app} />)
+          )}
         </CardContent>
       </Card>
 

@@ -17,6 +17,16 @@ export function createClient(
   })
 }
 
+export type ClientSummary = {
+  client_id: string
+  name: string
+  redirect_uris: string[]
+}
+
+export function getClients(): Promise<ClientSummary[]> {
+  return apiClient<ClientSummary[]>("/api/clients")
+}
+
 export function getClientInfo(clientId: string): Promise<{ name: string }> {
   return apiClient<{ name: string }>(`/api/clients/${clientId}`, { auth: false })
 }

@@ -12,8 +12,39 @@ import (
 // RegisterClientRoutes registers OAuth client management endpoints.
 func RegisterClientRoutes(app *fiber.App) {
 	clients := app.Group("/api/clients")
+	clients.Get("/", RequireSession, ListClients)
 	clients.Get("/:id", GetClientInfo)
 	clients.Post("/", RequireSession, CreateClient)
+}
+
+// ListClients returns all OAuth clients owned by the authenticated account.
+//
+// @Summary             List OAuth Clients
+// @Description         Returns all OAuth clients registered by the authenticated account. Does not include client secrets.
+// @Tags                Clients
+// @Produce             json
+// @Param               Authorization header string true "Bearer <token>"
+// @Success             200 {array} ClientSummary
+// @Failure             401 {object} ErrorResponse
+// @Router              /api/clients [get]
+func ListClients(c fiber.Ctx) error {
+	email := c.Locals("email").(string)
+
+	clients, err := db.GetClientsForRoot(context.Background(), email)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "client_list_failed"})
+	}
+
+	summaries := make([]ClientSummary, len(clients))
+	for i, cl := range clients {
+		summaries[i] = ClientSummary{
+			ClientID:     cl.ClientID,
+			Name:         cl.Name,
+			RedirectURIs: cl.RedirectURIs,
+		}
+	}
+
+	return c.JSON(summaries)
 }
 
 // GetClientInfo returns the public-facing name of an OAuth client.
