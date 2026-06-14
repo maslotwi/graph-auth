@@ -43,9 +43,6 @@ export default function AppLayout() {
           <Link to="/" className="font-medium">
             Graph Auth
           </Link>
-          <Button variant="ghost" render={<Link to="/devices" />}>
-            My devices
-          </Button>
           <Button variant="ghost" render={<Link to="/graph" />}>
             Graph
           </Button>
