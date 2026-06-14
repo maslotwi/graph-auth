@@ -6,7 +6,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 )
 
-// RequireSession validates the Bearer token from the Authorization header against Redis.
+// RequireSession validates the Bearer token from the Authorization header.
+// Checks Redis first, then falls back to Neo4j and repopulates the cache on success.
 // On success it sets "sessionToken" and "email" in request locals for handlers to use.
 func RequireSession(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
@@ -15,8 +16,8 @@ func RequireSession(c fiber.Ctx) error {
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
-	email, err := getFromRedis("session:" + token)
-	if err != nil || email == "" {
+	email, ok := resolveSessionEmail(token)
+	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "session_invalid"})
 	}
 

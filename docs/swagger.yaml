@@ -171,7 +171,8 @@ paths:
       consumes:
       - application/json
       description: Redeems a valid 6-digit delegation code to provision a new child
-        session node in the Neo4j provenance graph.
+        session node in the Neo4j provenance graph. The parent session must have the
+        fertile scope.
       parameters:
       - description: JSON body containing the 6-digit code and identifying device
           name
@@ -196,8 +197,8 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "403":
-          description: Graph constraints prevented attachment (e.g. parent session
-            was revoked)
+          description: Parent session was revoked, inactive, or lacks the fertile
+            scope
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Consume Session Invitation Code
@@ -208,7 +209,7 @@ paths:
       consumes:
       - application/json
       description: Generates a temporary, single-use 6-digit code or URL link from
-        an active session to invite a new device.
+        an active, fertile session to invite a new device.
       parameters:
       - description: Bearer <token> where token is a Session.token
         in: header
@@ -229,6 +230,10 @@ paths:
             $ref: '#/definitions/api.GenerateDelegationCodeResponse'
         "401":
           description: Unauthorized due to missing, invalid, or inactive session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Parent session lacks the fertile scope required to delegate
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":

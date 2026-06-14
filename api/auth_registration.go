@@ -80,7 +80,7 @@ func HandleVerify(c fiber.Ctx) error {
 	deviceSession := db.Session{
 		Token:      sessionToken,
 		DeviceName: deviceName,
-		Scopes:     normalizeScopes(body.Scopes),
+		Scopes:     withScope(normalizeScopes(body.Scopes), ScopeFertile),
 		IsActive:   true,
 	}
 
@@ -88,7 +88,7 @@ func HandleVerify(c fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_create_failed"})
 	}
 
-	if err := storeInRedis("session:"+sessionToken, email, 86400); err != nil {
+	if err := storeInRedis("session:"+sessionToken, email, sessionCacheTTLSeconds); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_store_failed"})
 	}
 

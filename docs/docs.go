@@ -67,7 +67,7 @@ const docTemplate = `{
         },
         "/api/auth/session/consume-code": {
             "post": {
-                "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph.",
+                "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph. The parent session must have the fertile scope.",
                 "consumes": [
                     "application/json"
                 ],
@@ -109,7 +109,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Graph constraints prevented attachment (e.g. parent session was revoked)",
+                        "description": "Parent session was revoked, inactive, or lacks the fertile scope",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -119,7 +119,7 @@ const docTemplate = `{
         },
         "/api/auth/session/generate-code": {
             "post": {
-                "description": "Generates a temporary, single-use 6-digit code or URL link from an active session to invite a new device.",
+                "description": "Generates a temporary, single-use 6-digit code or URL link from an active, fertile session to invite a new device.",
                 "consumes": [
                     "application/json"
                 ],
@@ -156,6 +156,12 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized due to missing, invalid, or inactive session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Parent session lacks the fertile scope required to delegate",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }

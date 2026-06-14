@@ -96,5 +96,6 @@ type ConsumeDelegationCodeResponse struct {
 // delegationPayload is the Redis cache entry for a pending delegation code.
 type delegationPayload struct {
 	Parent string   `json:"parent"`
+	Email  string   `json:"email"`
 	Scopes []string `json:"scopes"`
 }
