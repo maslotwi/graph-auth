@@ -33,6 +33,10 @@ definitions:
         type: string
       device_name:
         type: string
+      scopes:
+        items:
+          type: string
+        type: array
     type: object
   api.ConsumeDelegationCodeResponse:
     properties:
@@ -51,13 +55,6 @@ definitions:
       error:
         example: invalid_request
         type: string
-    type: object
-  api.GenerateDelegationCodeRequest:
-    properties:
-      scopes:
-        items:
-          type: string
-        type: array
     type: object
   api.GenerateDelegationCodeResponse:
     properties:
@@ -171,11 +168,11 @@ paths:
       consumes:
       - application/json
       description: Redeems a valid 6-digit delegation code to provision a new child
-        session node in the Neo4j provenance graph. The parent session must have the
-        fertile scope.
+        session node in the Neo4j provenance graph. Requested scopes must be limited
+        to read and fertile and be a subset of the parent session scopes.
       parameters:
-      - description: JSON body containing the 6-digit code and identifying device
-          name
+      - description: JSON body containing the 6-digit code, device name, and requested
+          scopes
         in: body
         name: body
         required: true
@@ -189,7 +186,7 @@ paths:
           schema:
             $ref: '#/definitions/api.ConsumeDelegationCodeResponse'
         "400":
-          description: Invalid request format
+          description: Invalid request format or requested scopes are not allowed
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
@@ -197,8 +194,8 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "403":
-          description: Parent session was revoked, inactive, or lacks the fertile
-            scope
+          description: Parent session was revoked, inactive, lacks fertile scope,
+            or requested scopes exceed parent scopes
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Consume Session Invitation Code
@@ -206,21 +203,15 @@ paths:
       - Session Delegation
   /api/auth/session/generate-code:
     post:
-      consumes:
-      - application/json
       description: Generates a temporary, single-use 6-digit code or URL link from
-        an active, fertile session to invite a new device.
+        an active, fertile session to invite a new device. Requested scopes are chosen
+        when the code is consumed.
       parameters:
       - description: Bearer <token> where token is a Session.token
         in: header
         name: Authorization
         required: true
         type: string
-      - description: Desired scopes for the target device
-        in: body
-        name: body
-        schema:
-          $ref: '#/definitions/api.GenerateDelegationCodeRequest'
       produces:
       - application/json
       responses:
@@ -264,7 +255,7 @@ paths:
           schema:
             $ref: '#/definitions/api.VerifyResponse'
         "400":
-          description: Missing token
+          description: Missing token or invalid scopes
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
