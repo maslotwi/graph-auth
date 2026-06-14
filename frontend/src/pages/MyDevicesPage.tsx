@@ -57,10 +57,7 @@ export default function MyDevicesPage() {
   async function handleGenerate() {
     setIsGenerating(true)
     try {
-      const result = await generateDelegationCode(
-        currentNode?.id ?? "",
-        currentNode?.permissions
-      )
+      const result = await generateDelegationCode()
       setCodeData({ code: result.code, link: result.link })
       startCountdown()
     } catch (err) {

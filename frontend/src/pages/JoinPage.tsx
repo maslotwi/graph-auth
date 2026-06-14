@@ -71,7 +71,8 @@ export default function JoinPage() {
     try {
       const { session_token } = await consumeDelegationCode(
         code.trim(),
-        deviceName.trim() || "New Device"
+        deviceName.trim() || "New Device",
+        scopes
       )
       await loginWithToken(session_token)
       toast.success("Device linked successfully")
