@@ -1,22 +1,11 @@
 import { apiClient } from "./client"
 import type {
   ConsumeCodeResponse,
-  CreateRootNodeRequest,
-  CreateRootNodeResponse,
   DelegationCodeResponse,
   MeNodeResponse,
   NodeTreeResponse,
 } from "@/types/auth"
 import type { Permission } from "@/types/node"
-
-export function createRootNode(
-  data: CreateRootNodeRequest
-): Promise<CreateRootNodeResponse> {
-  return apiClient<CreateRootNodeResponse>("/api/nodes/root", {
-    method: "POST",
-    body: data,
-  })
-}
 
 export function getCurrentNode(): Promise<MeNodeResponse> {
   return apiClient<MeNodeResponse>("/api/nodes/me")

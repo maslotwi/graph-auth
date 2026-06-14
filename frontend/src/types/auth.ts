@@ -1,4 +1,4 @@
-import type { GraphNode, Permission } from "./node"
+import type { GraphNode } from "./node"
 
 export type RegisterRequest = {
   email: string
@@ -10,21 +10,13 @@ export type RegisterResponse = {
 
 export type VerifyRequest = {
   token: string
+  name?: string
+  scopes?: string[]
 }
 
 export type VerifyResponse = {
   sessionToken: string
   email: string
-  requiresRootSetup: boolean
-}
-
-export type CreateRootNodeRequest = {
-  label: string
-  permissions: Permission[]
-}
-
-export type CreateRootNodeResponse = {
-  node: GraphNode
 }
 
 export type MeNodeResponse = {
