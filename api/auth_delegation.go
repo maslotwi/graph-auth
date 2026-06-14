@@ -16,11 +16,13 @@ import (
 const (
 	ScopeRead    = "read"
 	ScopeFertile = "fertile"
+	ScopeClients = "clients"
 )
 
 var allowedScopes = map[string]struct{}{
 	ScopeRead:    {},
 	ScopeFertile: {},
+	ScopeClients: {},
 }
 
 // RegisterDelegationRoutes adds your new camera-less SSO endpoints

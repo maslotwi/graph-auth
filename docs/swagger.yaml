@@ -1,25 +1,17 @@
 basePath: /
 definitions:
-  api.AuthorizeResponse:
-    properties:
-      message:
-        type: string
-      next_url:
-        type: string
-      status:
-        example: authenticated
-        type: string
-    type: object
-  api.ConfirmLoginRequest:
+  api.AuthorizeRequest:
     properties:
       client_id:
         type: string
       redirect_uri:
         type: string
+      scope:
+        type: string
       state:
         type: string
     type: object
-  api.ConfirmLoginResponse:
+  api.AuthorizeResponse:
     properties:
       redirect_to:
         type: string
@@ -48,6 +40,20 @@ definitions:
         type: string
       status:
         example: authenticated
+        type: string
+    type: object
+  api.CreateClientRequest:
+    properties:
+      name:
+        type: string
+    type: object
+  api.CreateClientResponse:
+    properties:
+      client_id:
+        type: string
+      client_secret:
+        type: string
+      name:
         type: string
     type: object
   api.ErrorResponse:
@@ -89,6 +95,10 @@ definitions:
       client_secret:
         type: string
       code:
+        type: string
+      grant_type:
+        type: string
+      redirect_uri:
         type: string
     type: object
   api.TokenExchangeResponse:
@@ -269,6 +279,50 @@ paths:
       summary: Verify Magic Link Token
       tags:
       - Auth
+  /api/clients:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new OAuth client owned by the authenticated account.
+        Requires the clients scope.
+      parameters:
+      - description: Bearer <token> where token is a Session.token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Client name
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.CreateClientRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Returns the generated client credentials
+          schema:
+            $ref: '#/definitions/api.CreateClientResponse'
+        "400":
+          description: Missing or invalid client name
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized due to missing or invalid session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Session lacks the clients scope
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Failed to create client in the graph
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Create OAuth Client
+      tags:
+      - Clients
   /api/health:
     get:
       description: Returns the health status of the API
@@ -283,77 +337,48 @@ paths:
       tags:
       - System
   /api/oauth/authorize:
-    get:
-      description: Evaluates device state. Redirects authenticated devices to a consent
-        screen, and unauthenticated devices to the session delegation flow.
-      parameters:
-      - description: OAuth2 Client ID
-        in: query
-        name: client_id
-        required: true
-        type: string
-      - description: OAuth2 Redirect URI
-        in: query
-        name: redirect_uri
-        required: true
-        type: string
-      - description: OAuth2 State string
-        in: query
-        name: state
-        required: true
-        type: string
-      - description: Existing Neo4j Session Token
-        in: header
-        name: X-Session-Token
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Returns the status and the next frontend URL to redirect to
-          schema:
-            $ref: '#/definitions/api.AuthorizeResponse'
-        "400":
-          description: Missing required OAuth2 parameters
-          schema:
-            $ref: '#/definitions/api.ErrorResponse'
-      summary: Authorize SSO Request
-      tags:
-      - OAuth2 SSO
-  /api/oauth/confirm:
     post:
       consumes:
       - application/json
-      description: Verifies the active session and generates a temporary, high-entropy
-        OAuth2 authorization code.
+      description: Creates a short-lived authorization code for the authenticated
+        user and returns the client redirect URL. Requires a valid session with the
+        clients scope excluded from granted OAuth scopes.
       parameters:
-      - description: Active Neo4j Session Token
+      - description: Bearer <token> where token is a Session.token
         in: header
-        name: X-Session-Token
+        name: Authorization
         required: true
         type: string
-      - description: JSON body containing client_id, redirect_uri, and state
+      - description: OAuth2 client and redirect parameters
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/api.ConfirmLoginRequest'
+          $ref: '#/definitions/api.AuthorizeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Returns the callback URL containing the auth code
           schema:
-            $ref: '#/definitions/api.ConfirmLoginResponse'
+            $ref: '#/definitions/api.AuthorizeResponse'
         "400":
-          description: Invalid payload
+          description: Invalid request or unknown client
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
-          description: Session invalid or revoked
+          description: Unauthorized due to missing or invalid session
           schema:
             $ref: '#/definitions/api.ErrorResponse'
-      summary: Confirm SSO Login
+        "403":
+          description: Requested scope exceeds session scopes
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Failed to store authorization code
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Authorize SSO Request
       tags:
       - OAuth2 SSO
   /api/oauth/token:
@@ -361,9 +386,9 @@ paths:
       consumes:
       - application/json
       description: Consumes a short-lived authorization code and issues a signed JWT
-        access token backed by Redis.
+        access token with a Redis-backed jti nonce for revocation.
       parameters:
-      - description: JSON body containing code, client_id, and client_secret
+      - description: JSON body containing grant_type, code, client_id, and client_secret
         in: body
         name: body
         required: true
@@ -377,11 +402,15 @@ paths:
           schema:
             $ref: '#/definitions/api.TokenExchangeResponse'
         "400":
-          description: Invalid request format
+          description: Invalid request format or unsupported grant type
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
-          description: Invalid, expired, or already consumed authorization code
+          description: Invalid client credentials or authorization code
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Failed to mint access token
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Exchange Auth Code for JWT

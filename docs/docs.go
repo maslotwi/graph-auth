@@ -216,6 +216,71 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/clients": {
+            "post": {
+                "description": "Creates a new OAuth client owned by the authenticated account. Requires the clients scope.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Clients"
+                ],
+                "summary": "Create OAuth Client",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer \u003ctoken\u003e where token is a Session.token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Client name",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateClientRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Returns the generated client credentials",
+                        "schema": {
+                            "$ref": "#/definitions/api.CreateClientResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid client name",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized due to missing or invalid session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Session lacks the clients scope",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create client in the graph",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/health": {
             "get": {
                 "description": "Returns the health status of the API",
@@ -237,8 +302,11 @@ const docTemplate = `{
             }
         },
         "/api/oauth/authorize": {
-            "get": {
-                "description": "Evaluates device state. Redirects authenticated devices to a consent screen, and unauthenticated devices to the session delegation flow.",
+            "post": {
+                "description": "Creates a short-lived authorization code for the authenticated user and returns the client redirect URL. Requires a valid session with the clients scope excluded from granted OAuth scopes.",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -249,76 +317,18 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "OAuth2 Client ID",
-                        "name": "client_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "OAuth2 Redirect URI",
-                        "name": "redirect_uri",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "OAuth2 State string",
-                        "name": "state",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Existing Neo4j Session Token",
-                        "name": "X-Session-Token",
-                        "in": "header"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Returns the status and the next frontend URL to redirect to",
-                        "schema": {
-                            "$ref": "#/definitions/api.AuthorizeResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Missing required OAuth2 parameters",
-                        "schema": {
-                            "$ref": "#/definitions/api.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/oauth/confirm": {
-            "post": {
-                "description": "Verifies the active session and generates a temporary, high-entropy OAuth2 authorization code.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "OAuth2 SSO"
-                ],
-                "summary": "Confirm SSO Login",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Active Neo4j Session Token",
-                        "name": "X-Session-Token",
+                        "description": "Bearer \u003ctoken\u003e where token is a Session.token",
+                        "name": "Authorization",
                         "in": "header",
                         "required": true
                     },
                     {
-                        "description": "JSON body containing client_id, redirect_uri, and state",
+                        "description": "OAuth2 client and redirect parameters",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/api.ConfirmLoginRequest"
+                            "$ref": "#/definitions/api.AuthorizeRequest"
                         }
                     }
                 ],
@@ -326,17 +336,29 @@ const docTemplate = `{
                     "200": {
                         "description": "Returns the callback URL containing the auth code",
                         "schema": {
-                            "$ref": "#/definitions/api.ConfirmLoginResponse"
+                            "$ref": "#/definitions/api.AuthorizeResponse"
                         }
                     },
                     "400": {
-                        "description": "Invalid payload",
+                        "description": "Invalid request or unknown client",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Session invalid or revoked",
+                        "description": "Unauthorized due to missing or invalid session",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Requested scope exceeds session scopes",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to store authorization code",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -346,7 +368,7 @@ const docTemplate = `{
         },
         "/api/oauth/token": {
             "post": {
-                "description": "Consumes a short-lived authorization code and issues a signed JWT access token backed by Redis.",
+                "description": "Consumes a short-lived authorization code and issues a signed JWT access token with a Redis-backed jti nonce for revocation.",
                 "consumes": [
                     "application/json"
                 ],
@@ -359,7 +381,7 @@ const docTemplate = `{
                 "summary": "Exchange Auth Code for JWT",
                 "parameters": [
                     {
-                        "description": "JSON body containing code, client_id, and client_secret",
+                        "description": "JSON body containing grant_type, code, client_id, and client_secret",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -376,13 +398,19 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid request format",
+                        "description": "Invalid request format or unsupported grant type",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
                     },
                     "401": {
-                        "description": "Invalid, expired, or already consumed authorization code",
+                        "description": "Invalid client credentials or authorization code",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to mint access token",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -392,22 +420,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.AuthorizeResponse": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "next_url": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string",
-                    "example": "authenticated"
-                }
-            }
-        },
-        "api.ConfirmLoginRequest": {
+        "api.AuthorizeRequest": {
             "type": "object",
             "properties": {
                 "client_id": {
@@ -416,12 +429,15 @@ const docTemplate = `{
                 "redirect_uri": {
                     "type": "string"
                 },
+                "scope": {
+                    "type": "string"
+                },
                 "state": {
                     "type": "string"
                 }
             }
         },
-        "api.ConfirmLoginResponse": {
+        "api.AuthorizeResponse": {
             "type": "object",
             "properties": {
                 "redirect_to": {
@@ -465,6 +481,28 @@ const docTemplate = `{
                 "status": {
                     "type": "string",
                     "example": "authenticated"
+                }
+            }
+        },
+        "api.CreateClientRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.CreateClientResponse": {
+            "type": "object",
+            "properties": {
+                "client_id": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -527,6 +565,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "code": {
+                    "type": "string"
+                },
+                "grant_type": {
+                    "type": "string"
+                },
+                "redirect_uri": {
                     "type": "string"
                 }
             }
