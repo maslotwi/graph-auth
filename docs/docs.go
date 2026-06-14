@@ -87,8 +87,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Active Session Token of Generator Device",
-                        "name": "X-Session-Token",
+                        "description": "Bearer \u003ctoken\u003e where token is a Session.token",
+                        "name": "Authorization",
                         "in": "header",
                         "required": true
                     },
@@ -109,7 +109,7 @@ const docTemplate = `{
                         }
                     },
                     "401": {
-                        "description": "Unauthorized due to missing or invalid session context",
+                        "description": "Unauthorized due to missing, invalid, or inactive session",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
