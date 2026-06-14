@@ -13,7 +13,15 @@ import (
 	"github.com/maslotwi/graph-auth/helpers/environment"
 )
 
-const ScopeFertile = "fertile"
+const (
+	ScopeRead    = "read"
+	ScopeFertile = "fertile"
+)
+
+var allowedScopes = map[string]struct{}{
+	ScopeRead:    {},
+	ScopeFertile: {},
+}
 
 // RegisterDelegationRoutes adds your new camera-less SSO endpoints
 func RegisterDelegationRoutes(app *fiber.App) {
@@ -25,12 +33,10 @@ func RegisterDelegationRoutes(app *fiber.App) {
 
 // GenerateDelegationCode handles Scenario 1 & 2 (Step 1): Active device creates an invitation code
 // @Summary             Generate Session Invitation Code
-// @Description         Generates a temporary, single-use 6-digit code or URL link from an active, fertile session to invite a new device.
+// @Description         Generates a temporary, single-use 6-digit code or URL link from an active, fertile session to invite a new device. Requested scopes are chosen when the code is consumed.
 // @Tags                Session Delegation
-// @Accept              json
 // @Produce             json
 // @Param               Authorization header string true "Bearer <token> where token is a Session.token"
-// @Param               body body GenerateDelegationCodeRequest false "Desired scopes for the target device"
 // @Success             200 {object} GenerateDelegationCodeResponse "Returns the 6-digit code, direct link, and TTL expiry"
 // @Failure             401 {object} ErrorResponse "Unauthorized due to missing, invalid, or inactive session"
 // @Failure             403 {object} ErrorResponse "Parent session lacks the fertile scope required to delegate"
@@ -50,12 +56,6 @@ func GenerateDelegationCode(c fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "parent_not_fertile"})
 	}
 
-	var body GenerateDelegationCodeRequest
-	if err := c.Bind().Body(&body); err != nil {
-		body.Scopes = nil
-	}
-	scopes := normalizeScopes(body.Scopes)
-
 	sixDigitCode, err := generateSixDigitCode()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "crypto_failure"})
@@ -64,7 +64,6 @@ func GenerateDelegationCode(c fiber.Ctx) error {
 	payload, err := json.Marshal(delegationPayload{
 		Parent: parentSessionToken,
 		Email:  c.Locals("email").(string),
-		Scopes: scopes,
 	})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "serialization_failure"})
@@ -84,15 +83,15 @@ func GenerateDelegationCode(c fiber.Ctx) error {
 
 // ConsumeDelegationCode handles Scenario 1 & 2 (Step 2): New device redeems the invitation code
 // @Summary             Consume Session Invitation Code
-// @Description         Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph. The parent session must have the fertile scope.
+// @Description         Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph. Requested scopes must be limited to read and fertile and be a subset of the parent session scopes.
 // @Tags                Session Delegation
 // @Accept              json
 // @Produce             json
-// @Param               body body ConsumeDelegationCodeRequest true "JSON body containing the 6-digit code and identifying device name"
+// @Param               body body ConsumeDelegationCodeRequest true "JSON body containing the 6-digit code, device name, and requested scopes"
 // @Success             200 {object} ConsumeDelegationCodeResponse "Returns a brand new persistent session token and active scopes"
-// @Failure             400 {object} ErrorResponse "Invalid request format"
+// @Failure             400 {object} ErrorResponse "Invalid request format or requested scopes are not allowed"
 // @Failure             401 {object} ErrorResponse "The code has expired, been used, or is mathematically invalid"
-// @Failure             403 {object} ErrorResponse "Parent session was revoked, inactive, or lacks the fertile scope"
+// @Failure             403 {object} ErrorResponse "Parent session was revoked, inactive, lacks fertile scope, or requested scopes exceed parent scopes"
 // @Router              /api/auth/session/consume-code [post]
 func ConsumeDelegationCode(c fiber.Ctx) error {
 	var body ConsumeDelegationCodeRequest
@@ -119,18 +118,36 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 		deviceName = "New Device"
 	}
 
-	allowedScopes := normalizeScopes(delegation.Scopes)
+	requestedScopes := normalizeScopes(body.Scopes)
+	if !validateScopes(requestedScopes) {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_scope"})
+	}
+
+	parentScopes, active, err := db.ActiveSessionScopes(context.Background(), delegation.Parent)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_lookup_failed"})
+	}
+	if !active {
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
+	}
+	if !isSubsetScopes(requestedScopes, parentScopes) {
+		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "scope_not_inherited"})
+	}
+
 	newDeviceSessionToken := generateSecureUUID()
 	childSession := db.Session{
 		Token:      newDeviceSessionToken,
 		DeviceName: deviceName,
-		Scopes:     allowedScopes,
+		Scopes:     requestedScopes,
 		IsActive:   true,
 	}
 	err = db.CreateChildSession(context.Background(), delegation.Parent, childSession)
 	if err != nil {
 		if errors.Is(err, db.ErrParentNotFertile) {
 			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "parent_not_fertile"})
+		}
+		if errors.Is(err, db.ErrChildScopesNotSubset) {
+			return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "scope_not_inherited"})
 		}
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
 	}
@@ -147,16 +164,48 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 
 	return c.JSON(ConsumeDelegationCodeResponse{
 		SessionToken: newDeviceSessionToken,
-		Scopes:       allowedScopes,
+		Scopes:       requestedScopes,
 		Status:       "authenticated",
 	})
 }
 
 func normalizeScopes(scopes []string) []string {
 	if len(scopes) == 0 {
-		return []string{"read"}
+		return []string{}
 	}
-	return scopes
+
+	seen := make(map[string]struct{}, len(scopes))
+	out := make([]string, 0, len(scopes))
+	for _, scope := range scopes {
+		if _, ok := seen[scope]; ok {
+			continue
+		}
+		seen[scope] = struct{}{}
+		out = append(out, scope)
+	}
+	return out
+}
+
+func validateScopes(scopes []string) bool {
+	for _, scope := range scopes {
+		if _, ok := allowedScopes[scope]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func isSubsetScopes(child, parent []string) bool {
+	parentSet := make(map[string]struct{}, len(parent))
+	for _, scope := range parent {
+		parentSet[scope] = struct{}{}
+	}
+	for _, scope := range child {
+		if _, ok := parentSet[scope]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func hasScope(scopes []string, scope string) bool {

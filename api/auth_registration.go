@@ -55,7 +55,7 @@ func HandleRegister(c fiber.Ctx) error {
 // @Produce             json
 // @Param               body body VerifyRequest true "JSON body with token, name, and scopes fields"
 // @Success             200 {object} VerifyResponse "Session token and email"
-// @Failure             400 {object} ErrorResponse "Missing token"
+// @Failure             400 {object} ErrorResponse "Missing token or invalid scopes"
 // @Failure             401 {object} ErrorResponse "Token expired or invalid"
 // @Failure             500 {object} ErrorResponse "Failed to create session"
 // @Router              /api/auth/verify [post]
@@ -77,10 +77,15 @@ func HandleVerify(c fiber.Ctx) error {
 	}
 
 	sessionToken := uuid.NewString()
+	scopes := withScope(normalizeScopes(body.Scopes), ScopeFertile)
+	if !validateScopes(scopes) {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_scope"})
+	}
+
 	deviceSession := db.Session{
 		Token:      sessionToken,
 		DeviceName: deviceName,
-		Scopes:     withScope(normalizeScopes(body.Scopes), ScopeFertile),
+		Scopes:     scopes,
 		IsActive:   true,
 	}
 

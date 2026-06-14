@@ -14,6 +14,8 @@ var (
 	ErrParentNotFound = errors.New("parent session not found or inactive")
 	// ErrParentNotFertile is returned when the parent session lacks the fertile scope.
 	ErrParentNotFertile = errors.New("parent session is not fertile")
+	// ErrChildScopesNotSubset is returned when child scopes exceed parent scopes.
+	ErrChildScopesNotSubset = errors.New("child scopes are not a subset of parent scopes")
 )
 
 // RootSession represents the canonical account anchor keyed by email.
@@ -108,6 +110,34 @@ func SessionHasScope(ctx context.Context, token, scope string) (bool, error) {
 	return false, nil
 }
 
+// ActiveSessionScopes returns the scopes of an active session token.
+// The second return value is true when the session exists and is active.
+func ActiveSessionScopes(ctx context.Context, token string) ([]string, bool, error) {
+	driver, err := Neo4j()
+	if err != nil {
+		return nil, false, err
+	}
+
+	neo4jSession := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer neo4jSession.Close(ctx)
+
+	result, err := neo4jSession.Run(ctx, `
+		MATCH (s:Session {token: $token})
+		WHERE coalesce(s.is_active, true) = true
+		RETURN coalesce(s.scopes, []) AS scopes
+	`, map[string]any{"token": token})
+	if err != nil {
+		return nil, false, err
+	}
+
+	if result.Next(ctx) {
+		scopes, _ := result.Record().Get("scopes")
+		return parseScopeSlice(scopes), true, nil
+	}
+
+	return nil, false, nil
+}
+
 // ActiveSessionEmail returns the root account email for an active session token.
 // The second return value is true when the session exists and is active.
 func ActiveSessionEmail(ctx context.Context, token string) (string, bool, error) {
@@ -154,7 +184,8 @@ func CreateChildSession(ctx context.Context, parentToken string, child Session) 
 			MATCH (parent:Session {token: $parentToken})
 			RETURN parent IS NOT NULL AS found,
 			       coalesce(parent.is_active, true) AS active,
-			       "fertile" IN coalesce(parent.scopes, []) AS fertile
+			       "fertile" IN coalesce(parent.scopes, []) AS fertile,
+			       coalesce(parent.scopes, []) AS parentScopes
 		`, map[string]any{"parentToken": parentToken})
 		if err != nil {
 			return nil, err
@@ -168,6 +199,7 @@ func CreateChildSession(ctx context.Context, parentToken string, child Session) 
 		found, _ := record.Get("found")
 		active, _ := record.Get("active")
 		fertile, _ := record.Get("fertile")
+		parentScopesRaw, _ := record.Get("parentScopes")
 
 		if foundBool, ok := found.(bool); !ok || !foundBool {
 			return nil, ErrParentNotFound
@@ -177,6 +209,9 @@ func CreateChildSession(ctx context.Context, parentToken string, child Session) 
 		}
 		if fertileBool, ok := fertile.(bool); !ok || !fertileBool {
 			return nil, ErrParentNotFertile
+		}
+		if !scopesSubset(child.Scopes, parseScopeSlice(parentScopesRaw)) {
+			return nil, ErrChildScopesNotSubset
 		}
 
 		result, err := tx.Run(ctx, `
@@ -211,4 +246,34 @@ func CreateChildSession(ctx context.Context, parentToken string, child Session) 
 	})
 
 	return err
+}
+
+func parseScopeSlice(val any) []string {
+	switch v := val.(type) {
+	case []string:
+		return v
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			if s, ok := item.(string); ok {
+				out = append(out, s)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
+}
+
+func scopesSubset(child, parent []string) bool {
+	parentSet := make(map[string]struct{}, len(parent))
+	for _, scope := range parent {
+		parentSet[scope] = struct{}{}
+	}
+	for _, scope := range child {
+		if _, ok := parentSet[scope]; !ok {
+			return false
+		}
+	}
+	return true
 }

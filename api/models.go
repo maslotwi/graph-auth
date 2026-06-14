@@ -68,11 +68,6 @@ type TokenExchangeResponse struct {
 	Scopes      []string `json:"scopes"`
 }
 
-// GenerateDelegationCodeRequest is the optional body for generating a delegation code.
-type GenerateDelegationCodeRequest struct {
-	Scopes []string `json:"scopes"`
-}
-
 // GenerateDelegationCodeResponse is returned when a delegation code is created.
 type GenerateDelegationCodeResponse struct {
 	Code      string `json:"code"`
@@ -82,8 +77,9 @@ type GenerateDelegationCodeResponse struct {
 
 // ConsumeDelegationCodeRequest is the body for redeeming a delegation code.
 type ConsumeDelegationCodeRequest struct {
-	Code       string `json:"code"`
-	DeviceName string `json:"device_name"`
+	Code       string   `json:"code"`
+	DeviceName string   `json:"device_name"`
+	Scopes     []string `json:"scopes"`
 }
 
 // ConsumeDelegationCodeResponse is returned when a delegation code is consumed.
@@ -95,7 +91,6 @@ type ConsumeDelegationCodeResponse struct {
 
 // delegationPayload is the Redis cache entry for a pending delegation code.
 type delegationPayload struct {
-	Parent string   `json:"parent"`
-	Email  string   `json:"email"`
-	Scopes []string `json:"scopes"`
+	Parent string `json:"parent"`
+	Email  string `json:"email"`
 }

@@ -67,7 +67,7 @@ const docTemplate = `{
         },
         "/api/auth/session/consume-code": {
             "post": {
-                "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph. The parent session must have the fertile scope.",
+                "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph. Requested scopes must be limited to read and fertile and be a subset of the parent session scopes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -80,7 +80,7 @@ const docTemplate = `{
                 "summary": "Consume Session Invitation Code",
                 "parameters": [
                     {
-                        "description": "JSON body containing the 6-digit code and identifying device name",
+                        "description": "JSON body containing the 6-digit code, device name, and requested scopes",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -97,7 +97,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid request format",
+                        "description": "Invalid request format or requested scopes are not allowed",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -109,7 +109,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Parent session was revoked, inactive, or lacks the fertile scope",
+                        "description": "Parent session was revoked, inactive, lacks fertile scope, or requested scopes exceed parent scopes",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -119,10 +119,7 @@ const docTemplate = `{
         },
         "/api/auth/session/generate-code": {
             "post": {
-                "description": "Generates a temporary, single-use 6-digit code or URL link from an active, fertile session to invite a new device.",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Generates a temporary, single-use 6-digit code or URL link from an active, fertile session to invite a new device. Requested scopes are chosen when the code is consumed.",
                 "produces": [
                     "application/json"
                 ],
@@ -137,14 +134,6 @@ const docTemplate = `{
                         "name": "Authorization",
                         "in": "header",
                         "required": true
-                    },
-                    {
-                        "description": "Desired scopes for the target device",
-                        "name": "body",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/api.GenerateDelegationCodeRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -207,7 +196,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Missing token",
+                        "description": "Missing token or invalid scopes",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -452,6 +441,12 @@ const docTemplate = `{
                 },
                 "device_name": {
                     "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -479,17 +474,6 @@ const docTemplate = `{
                 "error": {
                     "type": "string",
                     "example": "invalid_request"
-                }
-            }
-        },
-        "api.GenerateDelegationCodeRequest": {
-            "type": "object",
-            "properties": {
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },
