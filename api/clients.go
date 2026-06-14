@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/maslotwi/graph-auth/db"
@@ -22,9 +23,9 @@ func RegisterClientRoutes(app *fiber.App) {
 // @Accept              json
 // @Produce             json
 // @Param               Authorization header string true "Bearer <token> where token is a Session.token"
-// @Param               body body CreateClientRequest true "Client name"
+// @Param               body body CreateClientRequest true "Client name and registered redirect URIs"
 // @Success             200 {object} CreateClientResponse "Returns the generated client credentials"
-// @Failure             400 {object} ErrorResponse "Missing or invalid client name"
+// @Failure             400 {object} ErrorResponse "Missing or invalid client name or redirect URIs"
 // @Failure             401 {object} ErrorResponse "Unauthorized due to missing or invalid session"
 // @Failure             403 {object} ErrorResponse "Session lacks the clients scope"
 // @Failure             500 {object} ErrorResponse "Failed to create client in the graph"
@@ -46,6 +47,11 @@ func CreateClient(c fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_request"})
 	}
 
+	redirectURIs := normalizeRedirectURIs(body.RedirectURIs)
+	if len(redirectURIs) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_request"})
+	}
+
 	clientID := generateSecureUUID()
 	clientSecret := generateSecureUUID() + generateSecureUUID()
 
@@ -53,6 +59,7 @@ func CreateClient(c fiber.Ctx) error {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Name:         body.Name,
+		RedirectURIs: redirectURIs,
 	}
 
 	if err := db.CreateClientForRoot(context.Background(), email, client); err != nil {
@@ -66,5 +73,23 @@ func CreateClient(c fiber.Ctx) error {
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		Name:         body.Name,
+		RedirectURIs: redirectURIs,
 	})
+}
+
+func normalizeRedirectURIs(uris []string) []string {
+	seen := make(map[string]struct{}, len(uris))
+	out := make([]string, 0, len(uris))
+	for _, uri := range uris {
+		uri = strings.TrimSpace(uri)
+		if uri == "" {
+			continue
+		}
+		if _, ok := seen[uri]; ok {
+			continue
+		}
+		seen[uri] = struct{}{}
+		out = append(out, uri)
+	}
+	return out
 }

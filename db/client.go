@@ -13,7 +13,18 @@ type Client struct {
 	ClientID     string
 	ClientSecret string
 	Name         string
+	RedirectURIs []string
 	CreatedAt    time.Time
+}
+
+// ClientHasRedirectURI reports whether uri is registered for the client.
+func ClientHasRedirectURI(client Client, uri string) bool {
+	for _, registered := range client.RedirectURIs {
+		if registered == uri {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateClientForRoot creates a Client node owned by the RootSession for the given email.
@@ -33,6 +44,7 @@ func CreateClientForRoot(ctx context.Context, email string, client Client) error
 				client_id: $clientID,
 				client_secret: $clientSecret,
 				name: $name,
+				redirect_uris: $redirectURIs,
 				created_at: datetime()
 			})
 			CREATE (root)-[:OWNS {created_at: datetime()}]->(c)
@@ -42,6 +54,7 @@ func CreateClientForRoot(ctx context.Context, email string, client Client) error
 			"clientID":     client.ClientID,
 			"clientSecret": client.ClientSecret,
 			"name":         client.Name,
+			"redirectURIs": client.RedirectURIs,
 		})
 		if err != nil {
 			return nil, err
@@ -74,7 +87,8 @@ func GetClientByID(ctx context.Context, clientID string) (Client, error) {
 		MATCH (c:Client {client_id: $clientID})
 		RETURN c.client_id AS client_id,
 		       c.client_secret AS client_secret,
-		       c.name AS name
+		       c.name AS name,
+		       coalesce(c.redirect_uris, []) AS redirect_uris
 	`, map[string]any{"clientID": clientID})
 	if err != nil {
 		return Client{}, err
@@ -85,6 +99,7 @@ func GetClientByID(ctx context.Context, clientID string) (Client, error) {
 		clientIDVal, _ := record.Get("client_id")
 		clientSecretVal, _ := record.Get("client_secret")
 		nameVal, _ := record.Get("name")
+		redirectURIsVal, _ := record.Get("redirect_uris")
 
 		clientIDStr, ok1 := clientIDVal.(string)
 		clientSecretStr, ok2 := clientSecretVal.(string)
@@ -97,6 +112,7 @@ func GetClientByID(ctx context.Context, clientID string) (Client, error) {
 			ClientID:     clientIDStr,
 			ClientSecret: clientSecretStr,
 			Name:         nameStr,
+			RedirectURIs: parseScopeSlice(redirectURIsVal),
 		}, nil
 	}
 

@@ -17,6 +17,9 @@ const (
 	ScopeRead    = "read"
 	ScopeFertile = "fertile"
 	ScopeClients = "clients"
+	ScopeOpenID  = "openid"
+	ScopeProfile = "profile"
+	ScopeEmail   = "email"
 )
 
 var allowedScopes = map[string]struct{}{
@@ -24,6 +27,15 @@ var allowedScopes = map[string]struct{}{
 	ScopeFertile: {},
 	ScopeClients: {},
 }
+
+var allowedOAuthScopes = map[string]struct{}{
+	ScopeOpenID:  {},
+	ScopeProfile: {},
+	ScopeEmail:   {},
+	ScopeRead:    {},
+}
+
+var defaultOAuthScopes = []string{ScopeOpenID, ScopeProfile, ScopeEmail}
 
 // RegisterDelegationRoutes adds your new camera-less SSO endpoints
 func RegisterDelegationRoutes(app *fiber.App) {
@@ -210,6 +222,15 @@ func normalizeScopes(scopes []string) []string {
 func validateScopes(scopes []string) bool {
 	for _, scope := range scopes {
 		if _, ok := allowedScopes[scope]; !ok {
+			return false
+		}
+	}
+	return true
+}
+
+func validateOAuthScopes(scopes []string) bool {
+	for _, scope := range scopes {
+		if _, ok := allowedOAuthScopes[scope]; !ok {
 			return false
 		}
 	}

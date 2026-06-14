@@ -19,6 +19,54 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/.well-known/jwks.json": {
+            "get": {
+                "description": "Returns the public signing keys used by this OIDC provider.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OIDC"
+                ],
+                "summary": "JWKS",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/.well-known/openid-configuration": {
+            "get": {
+                "description": "Returns the OpenID Connect provider configuration document.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OIDC"
+                ],
+                "summary": "OIDC Discovery",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/register": {
             "post": {
                 "description": "Accepts an email address and sends a one-time login link valid for 15 minutes.",
@@ -282,7 +330,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Client name",
+                        "description": "Client name and registered redirect URIs",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -299,7 +347,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Missing or invalid client name",
+                        "description": "Missing or invalid client name or redirect URIs",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -485,8 +533,66 @@ const docTemplate = `{
             }
         },
         "/api/oauth/authorize": {
+            "get": {
+                "description": "Validates the client and redirect URI, then redirects the browser to the frontend consent page.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2 SSO"
+                ],
+                "summary": "Start OAuth Authorization",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "OAuth2 Client ID",
+                        "name": "client_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Registered OAuth2 Redirect URI",
+                        "name": "redirect_uri",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth2 State string",
+                        "name": "state",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Space-delimited OAuth scopes",
+                        "name": "scope",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "OAuth response type, must be code when provided",
+                        "name": "response_type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "302": {
+                        "description": "Redirect to the frontend consent page",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request, unknown client, or unregistered redirect URI",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            },
             "post": {
-                "description": "Creates a short-lived authorization code for the authenticated user and returns the client redirect URL. Requires a valid session with the clients scope excluded from granted OAuth scopes.",
+                "description": "Creates a short-lived authorization code for the authenticated user and returns the client redirect URL. Requires a registered redirect URI and valid OAuth scopes.",
                 "consumes": [
                     "application/json"
                 ],
@@ -523,7 +629,7 @@ const docTemplate = `{
                         }
                     },
                     "400": {
-                        "description": "Invalid request or unknown client",
+                        "description": "Invalid request, unknown client, or unregistered redirect URI",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -535,7 +641,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Requested scope exceeds session scopes",
+                        "description": "Invalid OAuth scope",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -551,9 +657,10 @@ const docTemplate = `{
         },
         "/api/oauth/token": {
             "post": {
-                "description": "Consumes a short-lived authorization code and issues a signed JWT access token with a Redis-backed jti nonce for revocation.",
+                "description": "Consumes a short-lived authorization code and issues a signed RS256 JWT access token with a Redis-backed jti nonce for revocation. Accepts application/json or application/x-www-form-urlencoded bodies and client credentials via body or HTTP Basic auth.",
                 "consumes": [
-                    "application/json"
+                    "application/json",
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -564,7 +671,7 @@ const docTemplate = `{
                 "summary": "Exchange Auth Code for JWT",
                 "parameters": [
                     {
-                        "description": "JSON body containing grant_type, code, client_id, and client_secret",
+                        "description": "Token exchange parameters",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -594,6 +701,41 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Failed to mint access token",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/oauth/userinfo": {
+            "get": {
+                "description": "Returns flat OIDC userinfo claims for a valid RS256 access token. Claims are filtered by the scopes granted to the token.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "OAuth2 SSO"
+                ],
+                "summary": "OIDC UserInfo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer \u003caccess_token\u003e",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OIDC userinfo claims",
+                        "schema": {
+                            "$ref": "#/definitions/api.UserInfoResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Missing, invalid, or revoked access token",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -698,6 +840,12 @@ const docTemplate = `{
             "properties": {
                 "name": {
                     "type": "string"
+                },
+                "redirect_uris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -712,6 +860,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "redirect_uris": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -812,11 +966,11 @@ const docTemplate = `{
                 "expires_in": {
                     "type": "integer"
                 },
-                "scopes": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "id_token": {
+                    "type": "string"
+                },
+                "scope": {
+                    "type": "string"
                 },
                 "token_type": {
                     "type": "string",
@@ -824,10 +978,39 @@ const docTemplate = `{
                 }
             }
         },
+        "api.UserInfoResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "email_verified": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "picture": {
+                    "type": "string"
+                },
+                "preferred_username": {
+                    "type": "string"
+                },
+                "sub": {
+                    "type": "string"
+                }
+            }
+        },
         "api.VerifyRequest": {
             "type": "object",
             "properties": {
+                "display_name": {
+                    "type": "string"
+                },
                 "name": {
+                    "type": "string"
+                },
+                "picture": {
                     "type": "string"
                 },
                 "scopes": {

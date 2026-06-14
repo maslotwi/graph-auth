@@ -76,6 +76,11 @@ func HandleVerify(c fiber.Ctx) error {
 		deviceName = "Primary Device"
 	}
 
+	displayName := body.DisplayName
+	if displayName == "" {
+		displayName = email
+	}
+
 	sessionToken := uuid.NewString()
 	scopes := normalizeScopes(body.Scopes)
 	scopes = withScope(scopes, ScopeFertile)
@@ -91,7 +96,7 @@ func HandleVerify(c fiber.Ctx) error {
 		IsActive:   true,
 	}
 
-	if err := db.CreateSessionFromRoot(context.Background(), email, deviceSession); err != nil {
+	if err := db.CreateSessionFromRoot(context.Background(), email, displayName, body.Picture, deviceSession); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_create_failed"})
 	}
 
