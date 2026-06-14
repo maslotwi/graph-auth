@@ -1,10 +1,12 @@
 package api
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
+	"github.com/maslotwi/graph-auth/db"
 )
 
 // RegisterAuthRoutes registers email magic-link registration and verification endpoints.
@@ -21,29 +23,27 @@ func RegisterAuthRoutes(app *fiber.App) {
 // @Tags                Auth
 // @Accept              json
 // @Produce             json
-// @Param               body body object true "JSON body with email field"
-// @Success             200 {object} map[string]string "Confirmation that the email was sent"
-// @Failure             400 {object} map[string]string "Missing or invalid email"
-// @Failure             500 {object} map[string]string "Failed to store token or send email"
+// @Param               body body RegisterRequest true "JSON body with email field"
+// @Success             200 {object} RegisterResponse "Confirmation that the email was sent"
+// @Failure             400 {object} ErrorResponse "Missing or invalid email"
+// @Failure             500 {object} ErrorResponse "Failed to store token or send email"
 // @Router              /api/auth/register [post]
 func HandleRegister(c fiber.Ctx) error {
-	var body struct {
-		Email string `json:"email"`
-	}
+	var body RegisterRequest
 	if err := c.Bind().Body(&body); err != nil || !isValidEmail(body.Email) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid_email"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_email"})
 	}
 
 	token := uuid.NewString()
 	if err := storeInRedis("register:"+token, body.Email, 900); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "token_store_failed"})
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "token_store_failed"})
 	}
 
 	if err := SendMagicLinkEmail(body.Email, token); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "email_send_failed"})
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "email_send_failed"})
 	}
 
-	return c.JSON(fiber.Map{"message": "Check your email for a verification link."})
+	return c.JSON(RegisterResponse{Message: "Check your email for a verification link."})
 }
 
 // HandleVerify exchanges a magic-link token for a session token.
@@ -53,36 +53,48 @@ func HandleRegister(c fiber.Ctx) error {
 // @Tags                Auth
 // @Accept              json
 // @Produce             json
-// @Param               body body object true "JSON body with token field"
-// @Success             200 {object} map[string]interface{} "Session token, email, and root setup flag"
-// @Failure             400 {object} map[string]string "Missing token"
-// @Failure             401 {object} map[string]string "Token expired or invalid"
-// @Failure             500 {object} map[string]string "Failed to create session"
+// @Param               body body VerifyRequest true "JSON body with token, name, and scopes fields"
+// @Success             200 {object} VerifyResponse "Session token and email"
+// @Failure             400 {object} ErrorResponse "Missing token"
+// @Failure             401 {object} ErrorResponse "Token expired or invalid"
+// @Failure             500 {object} ErrorResponse "Failed to create session"
 // @Router              /api/auth/verify [post]
 func HandleVerify(c fiber.Ctx) error {
-	var body struct {
-		Token string `json:"token"`
-	}
+	var body VerifyRequest
 	if err := c.Bind().Body(&body); err != nil || body.Token == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "token_required"})
+		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "token_required"})
 	}
 
 	email, err := getFromRedis("register:" + body.Token)
 	if err != nil || email == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "token_expired_or_invalid"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "token_expired_or_invalid"})
 	}
 	_ = deleteFromRedis("register:" + body.Token)
 
-	sessionToken := uuid.NewString()
-	if err := storeInRedis("session:"+sessionToken, email, 86400); err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "session_store_failed"})
+	deviceName := body.Name
+	if deviceName == "" {
+		deviceName = "Primary Device"
 	}
 
-	// requiresRootSetup: stub true until Neo4j check is wired up
-	return c.JSON(fiber.Map{
-		"sessionToken":      sessionToken,
-		"email":             email,
-		"requiresRootSetup": true,
+	sessionToken := uuid.NewString()
+	deviceSession := db.Session{
+		Token:      sessionToken,
+		DeviceName: deviceName,
+		Scopes:     normalizeScopes(body.Scopes),
+		IsActive:   true,
+	}
+
+	if err := db.CreateSessionFromRoot(context.Background(), email, deviceSession); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_create_failed"})
+	}
+
+	if err := storeInRedis("session:"+sessionToken, email, 86400); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "session_store_failed"})
+	}
+
+	return c.JSON(VerifyResponse{
+		SessionToken: sessionToken,
+		Email:        email,
 	})
 }
 

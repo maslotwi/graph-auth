@@ -49,8 +49,9 @@ build: doc
 ## services-up:         Start Neo4j and Redis via Docker Compose
 services-up:
 	@docker compose up -d --wait
-	@echo "Neo4j and Redis containers started"
+	@echo "Neo4j, Redis, and Mailpit containers started"
 	@echo "Neo4j is available at http://localhost:7474"
+	@echo "Mailpit is available at http://localhost:8025"
 
 ## services-down:       Stop Neo4j and Redis containers
 services-down:

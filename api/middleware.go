@@ -11,13 +11,13 @@ import (
 func RequireSession(c fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "missing_session"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "missing_session"})
 	}
 
 	token := strings.TrimPrefix(authHeader, "Bearer ")
 	email, err := getFromRedis("session:" + token)
 	if err != nil || email == "" {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "session_invalid"})
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "session_invalid"})
 	}
 
 	c.Locals("sessionToken", token)

@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/maslotwi/graph-auth/db"
 	"github.com/maslotwi/graph-auth/helpers/environment"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 // RegisterDelegationRoutes adds your new camera-less SSO endpoints
@@ -106,7 +105,13 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 
 	allowedScopes := normalizeScopes(delegation.Scopes)
 	newDeviceSessionToken := generateSecureUUID()
-	err = insertChildSessionIntoGraph(delegation.Parent, newDeviceSessionToken, deviceName, allowedScopes)
+	childSession := db.Session{
+		Token:      newDeviceSessionToken,
+		DeviceName: deviceName,
+		Scopes:     allowedScopes,
+		IsActive:   true,
+	}
+	err = db.CreateChildSession(context.Background(), delegation.Parent, childSession)
 	if err != nil {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
 	}
@@ -132,47 +137,4 @@ func generateSixDigitCode() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%d", n.Int64()+100000), nil
-}
-
-func insertChildSessionIntoGraph(parentToken, childToken, deviceName string, scopes []string) error {
-	driver, err := db.Neo4j()
-	if err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
-	defer session.Close(ctx)
-
-	_, err = session.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
-		result, err := tx.Run(ctx, `
-			MATCH (parent:Session {token: $parentToken})
-			WHERE coalesce(parent.is_active, true) = true
-			CREATE (child:Session {
-				token: $childToken,
-				device_name: $deviceName,
-				scopes: $scopes,
-				is_active: true,
-				created_at: datetime()
-			})
-			CREATE (parent)-[:SPAWNED {created_at: datetime()}]->(child)
-			RETURN child.token AS token
-		`, map[string]any{
-			"parentToken": parentToken,
-			"childToken":  childToken,
-			"deviceName":  deviceName,
-			"scopes":      scopes,
-		})
-		if err != nil {
-			return nil, err
-		}
-
-		if result.Next(ctx) {
-			return nil, nil
-		}
-
-		return nil, fmt.Errorf("parent session not found or inactive")
-	})
-
-	return err
 }

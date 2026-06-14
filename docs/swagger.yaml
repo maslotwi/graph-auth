@@ -74,6 +74,17 @@ definitions:
         example: ok
         type: string
     type: object
+  api.RegisterRequest:
+    properties:
+      email:
+        type: string
+    type: object
+  api.RegisterResponse:
+    properties:
+      message:
+        example: Check your email for a verification link.
+        type: string
+    type: object
   api.TokenExchangeRequest:
     properties:
       client_id:
@@ -97,6 +108,24 @@ definitions:
         example: Bearer
         type: string
     type: object
+  api.VerifyRequest:
+    properties:
+      name:
+        type: string
+      scopes:
+        items:
+          type: string
+        type: array
+      token:
+        type: string
+    type: object
+  api.VerifyResponse:
+    properties:
+      email:
+        type: string
+      sessionToken:
+        type: string
+    type: object
 info:
   contact: {}
   description: This is the core REST API for Graph Auth.
@@ -106,6 +135,37 @@ info:
   title: Graph Auth
   version: "1.0"
 paths:
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Accepts an email address and sends a one-time login link valid
+        for 15 minutes.
+      parameters:
+      - description: JSON body with email field
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Confirmation that the email was sent
+          schema:
+            $ref: '#/definitions/api.RegisterResponse'
+        "400":
+          description: Missing or invalid email
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Failed to store token or send email
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Register / Request Magic Link
+      tags:
+      - Auth
   /api/auth/session/consume-code:
     post:
       consumes:
@@ -178,6 +238,41 @@ paths:
       summary: Generate Session Invitation Code
       tags:
       - Session Delegation
+  /api/auth/verify:
+    post:
+      consumes:
+      - application/json
+      description: Consumes a one-time token from the magic link and returns a session
+        token.
+      parameters:
+      - description: JSON body with token, name, and scopes fields
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.VerifyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session token and email
+          schema:
+            $ref: '#/definitions/api.VerifyResponse'
+        "400":
+          description: Missing token
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Token expired or invalid
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Failed to create session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Verify Magic Link Token
+      tags:
+      - Auth
   /api/health:
     get:
       description: Returns the health status of the API
