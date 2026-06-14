@@ -6,18 +6,19 @@ var (
 	Port          string
 	BaseUrl       string
 	FrontendURL   string
+	IssuerURL     string
 	Neo4jURI      string
 	Neo4jUser     string
 	Neo4jPassword string
 	RedisAddr     string
 
-	SMTPHost       string
-	SMTPPort       string
-	SMTPServerName string
-	SMTPUser       string
-	SMTPPass       string
-	SMTPFrom       string
-	JWTSecret      string
+	SMTPHost          string
+	SMTPPort          string
+	SMTPServerName    string
+	SMTPUser          string
+	SMTPPass          string
+	SMTPFrom          string
+	RSAPrivateKeyPath string
 )
 
 func LoadEnv() {
@@ -29,6 +30,11 @@ func LoadEnv() {
 	Port = os.Getenv("PORT")
 	if Port == "" {
 		Port = "8080"
+	}
+
+	IssuerURL = os.Getenv("ISSUER_URL")
+	if IssuerURL == "" {
+		IssuerURL = "http://localhost:8080"
 	}
 
 	Neo4jURI = os.Getenv("NEO4J_URI")
@@ -79,8 +85,8 @@ func LoadEnv() {
 		SMTPFrom = "noreply@graph-auth.local"
 	}
 
-	JWTSecret = os.Getenv("JWT_SECRET")
-	if JWTSecret == "" {
-		JWTSecret = "dev-insecure-jwt-secret-change-me"
+	RSAPrivateKeyPath = os.Getenv("RSA_PRIVATE_KEY_PATH")
+	if RSAPrivateKeyPath == "" {
+		RSAPrivateKeyPath = "./jwt_rsa_key.pem"
 	}
 }

@@ -63,6 +63,10 @@ definitions:
     properties:
       name:
         type: string
+      redirect_uris:
+        items:
+          type: string
+        type: array
     type: object
   api.CreateClientResponse:
     properties:
@@ -72,6 +76,10 @@ definitions:
         type: string
       name:
         type: string
+      redirect_uris:
+        items:
+          type: string
+        type: array
     type: object
   api.ErrorResponse:
     properties:
@@ -136,17 +144,36 @@ definitions:
         type: string
       expires_in:
         type: integer
-      scopes:
-        items:
-          type: string
-        type: array
+      id_token:
+        type: string
+      scope:
+        type: string
       token_type:
         example: Bearer
         type: string
     type: object
+  api.UserInfoResponse:
+    properties:
+      email:
+        type: string
+      email_verified:
+        type: boolean
+      name:
+        type: string
+      picture:
+        type: string
+      preferred_username:
+        type: string
+      sub:
+        type: string
+    type: object
   api.VerifyRequest:
     properties:
+      display_name:
+        type: string
       name:
+        type: string
+      picture:
         type: string
       scopes:
         items:
@@ -171,6 +198,38 @@ info:
   title: Graph Auth
   version: "1.0"
 paths:
+  /.well-known/jwks.json:
+    get:
+      description: Returns the public signing keys used by this OIDC provider.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: JWKS
+      tags:
+      - OIDC
+  /.well-known/openid-configuration:
+    get:
+      description: Returns the OpenID Connect provider configuration document.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: OIDC Discovery
+      tags:
+      - OIDC
   /api/auth/register:
     post:
       consumes:
@@ -350,7 +409,7 @@ paths:
         name: Authorization
         required: true
         type: string
-      - description: Client name
+      - description: Client name and registered redirect URIs
         in: body
         name: body
         required: true
@@ -364,7 +423,7 @@ paths:
           schema:
             $ref: '#/definitions/api.CreateClientResponse'
         "400":
-          description: Missing or invalid client name
+          description: Missing or invalid client name or redirect URIs
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
@@ -491,12 +550,52 @@ paths:
       tags:
       - Nodes
   /api/oauth/authorize:
+    get:
+      description: Validates the client and redirect URI, then redirects the browser
+        to the frontend consent page.
+      parameters:
+      - description: OAuth2 Client ID
+        in: query
+        name: client_id
+        required: true
+        type: string
+      - description: Registered OAuth2 Redirect URI
+        in: query
+        name: redirect_uri
+        required: true
+        type: string
+      - description: OAuth2 State string
+        in: query
+        name: state
+        type: string
+      - description: Space-delimited OAuth scopes
+        in: query
+        name: scope
+        type: string
+      - description: OAuth response type, must be code when provided
+        in: query
+        name: response_type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "302":
+          description: Redirect to the frontend consent page
+          schema:
+            type: string
+        "400":
+          description: Invalid request, unknown client, or unregistered redirect URI
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Start OAuth Authorization
+      tags:
+      - OAuth2 SSO
     post:
       consumes:
       - application/json
       description: Creates a short-lived authorization code for the authenticated
-        user and returns the client redirect URL. Requires a valid session with the
-        clients scope excluded from granted OAuth scopes.
+        user and returns the client redirect URL. Requires a registered redirect URI
+        and valid OAuth scopes.
       parameters:
       - description: Bearer <token> where token is a Session.token
         in: header
@@ -517,7 +616,7 @@ paths:
           schema:
             $ref: '#/definitions/api.AuthorizeResponse'
         "400":
-          description: Invalid request or unknown client
+          description: Invalid request, unknown client, or unregistered redirect URI
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "401":
@@ -525,7 +624,7 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "403":
-          description: Requested scope exceeds session scopes
+          description: Invalid OAuth scope
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":
@@ -539,10 +638,13 @@ paths:
     post:
       consumes:
       - application/json
-      description: Consumes a short-lived authorization code and issues a signed JWT
-        access token with a Redis-backed jti nonce for revocation.
+      - multipart/form-data
+      description: Consumes a short-lived authorization code and issues a signed RS256
+        JWT access token with a Redis-backed jti nonce for revocation. Accepts application/json
+        or application/x-www-form-urlencoded bodies and client credentials via body
+        or HTTP Basic auth.
       parameters:
-      - description: JSON body containing grant_type, code, client_id, and client_secret
+      - description: Token exchange parameters
         in: body
         name: body
         required: true
@@ -568,6 +670,30 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Exchange Auth Code for JWT
+      tags:
+      - OAuth2 SSO
+  /api/oauth/userinfo:
+    get:
+      description: Returns flat OIDC userinfo claims for a valid RS256 access token.
+        Claims are filtered by the scopes granted to the token.
+      parameters:
+      - description: Bearer <access_token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OIDC userinfo claims
+          schema:
+            $ref: '#/definitions/api.UserInfoResponse'
+        "401":
+          description: Missing, invalid, or revoked access token
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: OIDC UserInfo
       tags:
       - OAuth2 SSO
 swagger: "2.0"

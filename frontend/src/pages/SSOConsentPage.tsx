@@ -24,6 +24,7 @@ export default function SSOConsentPage() {
   const clientId = searchParams.get("client_id") ?? ""
   const redirectUri = searchParams.get("redirect_uri") ?? ""
   const state = searchParams.get("state") ?? ""
+  const scope = searchParams.get("scope") ?? ""
 
   useEffect(() => {
     if (isLoading) return
@@ -54,6 +55,7 @@ export default function SSOConsentPage() {
         client_id: clientId,
         redirect_uri: redirectUri,
         state,
+        scope,
       })
       window.location.href = redirect_to
     } catch (err) {

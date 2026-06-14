@@ -22,9 +22,11 @@ type RegisterResponse struct {
 
 // VerifyRequest is the body for exchanging a magic-link token for a session.
 type VerifyRequest struct {
-	Token  string   `json:"token"`
-	Name   string   `json:"name"`
-	Scopes []string `json:"scopes"`
+	Token       string   `json:"token"`
+	Name        string   `json:"name"`
+	DisplayName string   `json:"display_name"`
+	Picture     string   `json:"picture"`
+	Scopes      []string `json:"scopes"`
 }
 
 // VerifyResponse is returned after a magic-link token is verified.
@@ -49,19 +51,20 @@ type AuthorizeResponse struct {
 
 // TokenExchangeRequest is the body for exchanging an authorization code for a JWT.
 type TokenExchangeRequest struct {
-	GrantType    string `json:"grant_type"`
-	Code         string `json:"code"`
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	RedirectURI  string `json:"redirect_uri"`
+	GrantType    string `json:"grant_type" form:"grant_type"`
+	Code         string `json:"code" form:"code"`
+	ClientID     string `json:"client_id" form:"client_id"`
+	ClientSecret string `json:"client_secret" form:"client_secret"`
+	RedirectURI  string `json:"redirect_uri" form:"redirect_uri"`
 }
 
 // TokenExchangeResponse is the standard OAuth2 access token payload.
 type TokenExchangeResponse struct {
-	AccessToken string   `json:"access_token"`
-	TokenType   string   `json:"token_type" example:"Bearer"`
-	ExpiresIn   int      `json:"expires_in"`
-	Scopes      []string `json:"scopes"`
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type" example:"Bearer"`
+	ExpiresIn   int    `json:"expires_in"`
+	Scope       string `json:"scope"`
+	IDToken     string `json:"id_token,omitempty"`
 }
 
 // GenerateDelegationCodeResponse is returned when a delegation code is created.
@@ -87,14 +90,26 @@ type ConsumeDelegationCodeResponse struct {
 
 // CreateClientRequest is the body for creating an OAuth client.
 type CreateClientRequest struct {
-	Name string `json:"name"`
+	Name         string   `json:"name"`
+	RedirectURIs []string `json:"redirect_uris"`
 }
 
 // CreateClientResponse is returned after an OAuth client is created.
 type CreateClientResponse struct {
-	ClientID     string `json:"client_id"`
-	ClientSecret string `json:"client_secret"`
-	Name         string `json:"name"`
+	ClientID     string   `json:"client_id"`
+	ClientSecret string   `json:"client_secret"`
+	Name         string   `json:"name"`
+	RedirectURIs []string `json:"redirect_uris"`
+}
+
+// UserInfoResponse is the OIDC userinfo payload returned for access tokens.
+type UserInfoResponse struct {
+	Sub               string `json:"sub"`
+	Email             string `json:"email,omitempty"`
+	EmailVerified     bool   `json:"email_verified,omitempty"`
+	Name              string `json:"name,omitempty"`
+	Picture           string `json:"picture,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
 }
 
 // delegationPayload is the Redis cache entry for a pending delegation code.
@@ -105,7 +120,8 @@ type delegationPayload struct {
 
 // authCodePayload is the Redis cache entry for a pending OAuth authorization code.
 type authCodePayload struct {
-	Email    string   `json:"email"`
-	ClientID string   `json:"client_id"`
-	Scopes   []string `json:"scopes"`
+	Email       string   `json:"email"`
+	ClientID    string   `json:"client_id"`
+	RedirectURI string   `json:"redirect_uri"`
+	Scopes      []string `json:"scopes"`
 }
