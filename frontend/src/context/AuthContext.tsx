@@ -83,11 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void bootstrap()
   }, [bootstrap])
 
-  const applyVerifyResponse = useCallback((response: VerifyResponse) => {
+  const applyVerifyResponse = useCallback(async (response: VerifyResponse) => {
     persistSession(response.sessionToken, response.email)
     setSessionTokenState(response.sessionToken)
     setEmail(response.email)
-    setCurrentNode(null)
+    try {
+      const { node } = await nodesApi.getCurrentNode()
+      setCurrentNode(node)
+    } catch {
+      setCurrentNode(null)
+    }
   }, [])
 
   const register = useCallback(async (registerEmail: string) => {
@@ -97,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const verify = useCallback(
     async (token: string, name?: string, scopes?: string[]) => {
       const response = await authApi.verifyEmail({ token, name, scopes })
-      applyVerifyResponse(response)
+      await applyVerifyResponse(response)
       return response
     },
     [applyVerifyResponse]

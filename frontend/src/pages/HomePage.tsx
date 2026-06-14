@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import { createClient, type ClientCredentials } from "@/api/clients"
 import { generateDelegationCode, getNodeTree, invalidateNode } from "@/api/nodes"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,7 +12,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { QRCode } from "@/components/ui/qr-code"
+import { Separator } from "@/components/ui/separator"
 import { useAuth } from "@/hooks/useAuth"
 import { ApiError } from "@/types/api"
 import type { GraphNode } from "@/types/node"
@@ -209,7 +213,60 @@ function DevicesSection() {
 
 // ── Apps column ───────────────────────────────────────────────────────────────
 
+function CredentialRow({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false)
+
+  async function handleCopy() {
+    await navigator.clipboard.writeText(value)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Label className="text-xs text-muted-foreground">{label}</Label>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 rounded bg-muted px-2 py-1.5 font-mono text-xs break-all">
+          {value}
+        </code>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          onClick={() => void handleCopy()}
+        >
+          {copied ? "Copied!" : "Copy"}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 function AppsSection() {
+  const { currentNode } = useAuth()
+  const [name, setName] = useState("")
+  const [isCreating, setIsCreating] = useState(false)
+  const [credentials, setCredentials] = useState<ClientCredentials | null>(null)
+
+  const hasClientsScope = currentNode?.permissions.includes("clients") ?? false
+
+  async function handleCreate(e: { preventDefault(): void }) {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setIsCreating(true)
+    try {
+      const creds = await createClient(trimmed)
+      setCredentials(creds)
+      setName("")
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Failed to create app.")
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -226,14 +283,58 @@ function AppsSection() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Add an app</CardTitle>
+          <CardTitle>Register an app</CardTitle>
           <CardDescription>
-            Register an OAuth2 application to use your Graph Auth identity for sign-in.
+            Create an OAuth2 client to integrate your application with Graph Auth
+            sign-in.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex flex-col items-center gap-3">
-          <Button disabled>Register app</Button>
-          <p className="text-xs text-muted-foreground">Coming soon</p>
+        <CardContent>
+          {!hasClientsScope ? (
+            <p className="text-sm text-muted-foreground">
+              Your session needs the{" "}
+              <Badge variant="outline" className="text-[10px]">clients</Badge>{" "}
+              scope to register apps.
+            </p>
+          ) : credentials ? (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 px-3 py-2">
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Save the client secret now — it will not be shown again.
+                </p>
+              </div>
+              <CredentialRow label="App name" value={credentials.name} />
+              <CredentialRow label="Client ID" value={credentials.client_id} />
+              <CredentialRow label="Client Secret" value={credentials.client_secret} />
+              <Separator />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCredentials(null)}
+              >
+                Done
+              </Button>
+            </div>
+          ) : (
+            <form onSubmit={handleCreate} className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="app-name">App name</Label>
+                <Input
+                  id="app-name"
+                  placeholder="My Application"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={isCreating || !name.trim()}
+                className="self-start"
+              >
+                {isCreating ? "Registering…" : "Register app"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>
