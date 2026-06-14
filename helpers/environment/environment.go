@@ -5,10 +5,18 @@ import "os"
 var (
 	Port          string
 	BaseUrl       string
+	FrontendURL   string
 	Neo4jURI      string
 	Neo4jUser     string
 	Neo4jPassword string
 	RedisAddr     string
+
+	SMTPHost       string
+	SMTPPort       string
+	SMTPServerName string
+	SMTPUser       string
+	SMTPPass       string
+	SMTPFrom       string
 )
 
 func LoadEnv() {
@@ -40,5 +48,33 @@ func LoadEnv() {
 	RedisAddr = os.Getenv("REDIS_ADDR")
 	if RedisAddr == "" {
 		RedisAddr = "localhost:6379"
+	}
+
+	FrontendURL = os.Getenv("FRONTEND_URL")
+	if FrontendURL == "" {
+		FrontendURL = "http://localhost:5173"
+	}
+
+	SMTPHost = os.Getenv("SMTP_HOST")
+	if SMTPHost == "" {
+		SMTPHost = "localhost"
+	}
+
+	SMTPPort = os.Getenv("SMTP_PORT")
+	if SMTPPort == "" {
+		SMTPPort = "1025"
+	}
+
+	SMTPServerName = os.Getenv("SMTP_SERVER_NAME")
+	if SMTPServerName == "" {
+		SMTPServerName = SMTPHost
+	}
+
+	SMTPUser = os.Getenv("SMTP_USER")
+	SMTPPass = os.Getenv("SMTP_PASS")
+
+	SMTPFrom = os.Getenv("SMTP_FROM")
+	if SMTPFrom == "" {
+		SMTPFrom = "noreply@graph-auth.local"
 	}
 }

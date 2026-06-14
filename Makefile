@@ -4,7 +4,7 @@ FRONTEND_DIR=frontend
 
 .PHONY: all fmt doc build run clean help \
         frontend-install frontend-build frontend-dev frontend-lint frontend-format frontend-typecheck \
-        dev build-all vet lint services-up services-down
+        dev build-all vet lint services-up services-down mailpit
 
 all: fmt doc build
 
@@ -56,6 +56,11 @@ services-up:
 services-down:
 	@docker compose down
 
+## mailpit:             Start Mailpit email testing UI (SMTP :1025, UI http://localhost:8025)
+mailpit:
+	@docker run -d --name mailpit -p 1025:1025 -p 8025:8025 axllent/mailpit 2>/dev/null || docker start mailpit
+	@echo "Mailpit UI: http://localhost:8025"
+
 ## run:                 Start databases, format/generate docs, and run the application
 run: doc services-up
 	@echo "Starting application..."
@@ -94,8 +99,8 @@ frontend-typecheck:
 ## lint:              Run all linters (go vet + ESLint)
 lint: vet frontend-lint
 
-## dev:          Start backend and frontend dev servers concurrently (Ctrl+C stops both)
-dev: doc
+## dev:          Start services, backend, and frontend dev servers concurrently (Ctrl+C stops both)
+dev: doc services-up
 	@echo "Starting dev servers..."
 	@trap 'kill 0' INT; \
 		go run $(MAIN_PATH) & \
