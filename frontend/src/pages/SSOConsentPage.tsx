@@ -31,7 +31,7 @@ export default function SSOConsentPage() {
       const returnTo = encodeURIComponent(
         window.location.pathname + window.location.search
       )
-      void navigate(`/login?return=${returnTo}`, { replace: true })
+      void navigate(`/join?return=${returnTo}`, { replace: true })
     }
   }, [isAuthenticated, isLoading, navigate])
 

@@ -1,8 +1,5 @@
-import { handleMockRequest } from "@/api/mocks/mockRouter"
 import { apiUrl } from "@/lib/api"
 import { ApiError, type ApiErrorBody } from "@/types/api"
-
-const useMocks = import.meta.env.VITE_USE_MOCKS === "true"
 
 const SESSION_TOKEN_KEY = "graph-auth:session-token"
 
@@ -52,33 +49,12 @@ export async function apiClient<T>(
   }
 
   const url = apiUrl(path)
-  const method = (init.method ?? "GET").toUpperCase()
-
-  let response: Response
-
-  if (useMocks) {
-    const mockResponse = await handleMockRequest({
-      path: url,
-      method,
-      headers: requestHeaders,
-      body,
-    })
-    if (mockResponse) {
-      response = mockResponse
-    } else {
-      response = await fetch(url, {
-        ...init,
-        headers: requestHeaders,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-      })
-    }
-  } else {
-    response = await fetch(url, {
-      ...init,
-      headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
-    })
-  }
+  const response = await fetch(url, {
+    ...init,
+    method: init.method ?? "GET",
+    headers: requestHeaders,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+  })
 
   if (!response.ok) {
     let message = response.statusText

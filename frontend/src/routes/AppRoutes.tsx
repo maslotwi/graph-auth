@@ -10,7 +10,6 @@ function lazyPage(importer: () => Promise<{ default: ComponentType }>) {
 }
 
 const HomePage = lazyPage(() => import("@/pages/HomePage"))
-const LoginPage = lazyPage(() => import("@/pages/LoginPage"))
 const RegisterPage = lazyPage(() => import("@/pages/RegisterPage"))
 const MyDevicesPage = lazyPage(() => import("@/pages/MyDevicesPage"))
 const CheckEmailPage = lazyPage(() => import("@/pages/CheckEmailPage"))
@@ -35,7 +34,7 @@ export const routes: RouteObject[] = [
   {
     element: <PublicLayout />,
     children: [
-      { path: "/login", element: withSuspense(<LoginPage />) },
+      { path: "/login", element: withSuspense(<JoinPage />) },
       { path: "/register", element: withSuspense(<RegisterPage />) },
       { path: "/check-email", element: withSuspense(<CheckEmailPage />) },
       { path: "/verify", element: withSuspense(<VerifyEmailPage />) },
