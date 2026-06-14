@@ -8,7 +8,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/maslotwi/graph-auth/db"
-	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -155,40 +154,33 @@ func HandleTokenExchange(c fiber.Ctx) error {
 }
 
 // ------------------------------------------------------------------------
-// ADDITIONAL MINIMAL GRAPH VERIFICATION STUB
+// SESSION CACHE AND GRAPH VERIFICATION
 // ------------------------------------------------------------------------
+
+const sessionCacheTTLSeconds = 86400
 
 func verifyTokenInGraph(token string) bool {
 	if token == "" {
 		return false
 	}
 
-	driver, err := db.Neo4j()
-	if err != nil {
-		return false
+	_, active, err := db.ActiveSessionEmail(context.Background(), token)
+	return err == nil && active
+}
+
+func resolveSessionEmail(token string) (string, bool) {
+	email, err := getFromRedis("session:" + token)
+	if err == nil && email != "" {
+		return email, true
 	}
 
-	ctx := context.Background()
-	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
-	defer session.Close(ctx)
-
-	result, err := session.Run(ctx, `
-		MATCH (s:Session {token: $token})
-		WHERE coalesce(s.is_active, true) = true
-		RETURN count(s) > 0 AS active
-	`, map[string]any{"token": token})
-	if err != nil {
-		return false
+	email, active, err := db.ActiveSessionEmail(context.Background(), token)
+	if err != nil || !active || email == "" {
+		return "", false
 	}
 
-	if result.Next(ctx) {
-		active, _ := result.Record().Get("active")
-		if b, ok := active.(bool); ok {
-			return b
-		}
-	}
-
-	return false
+	_ = storeInRedis("session:"+token, email, sessionCacheTTLSeconds)
+	return email, true
 }
 
 func generateSecureUUID() string {
