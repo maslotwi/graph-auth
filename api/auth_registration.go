@@ -77,7 +77,9 @@ func HandleVerify(c fiber.Ctx) error {
 	}
 
 	sessionToken := uuid.NewString()
-	scopes := withScope(normalizeScopes(body.Scopes), ScopeFertile)
+	scopes := normalizeScopes(body.Scopes)
+	scopes = withScope(scopes, ScopeFertile)
+	scopes = withScope(scopes, ScopeClients)
 	if !validateScopes(scopes) {
 		return c.Status(fiber.StatusBadRequest).JSON(ErrorResponse{Error: "invalid_scope"})
 	}

@@ -16,6 +16,10 @@ var (
 	ErrParentNotFertile = errors.New("parent session is not fertile")
 	// ErrChildScopesNotSubset is returned when child scopes exceed parent scopes.
 	ErrChildScopesNotSubset = errors.New("child scopes are not a subset of parent scopes")
+	// ErrRootNotFound is returned when no RootSession exists for the given email.
+	ErrRootNotFound = errors.New("root session not found")
+	// ErrClientNotFound is returned when no Client exists for the given client_id.
+	ErrClientNotFound = errors.New("client not found")
 )
 
 // RootSession represents the canonical account anchor keyed by email.

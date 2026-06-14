@@ -33,31 +33,27 @@ type VerifyResponse struct {
 	Email        string `json:"email"`
 }
 
-// AuthorizeResponse is returned when evaluating an OAuth2 authorize request.
-type AuthorizeResponse struct {
-	Status  string `json:"status" example:"authenticated"`
-	Message string `json:"message"`
-	NextURL string `json:"next_url"`
-}
-
-// ConfirmLoginRequest is the body for confirming an SSO login.
-type ConfirmLoginRequest struct {
+// AuthorizeRequest is the body for issuing an OAuth2 authorization code.
+type AuthorizeRequest struct {
 	ClientID    string `json:"client_id"`
 	RedirectURI string `json:"redirect_uri"`
 	State       string `json:"state"`
+	Scope       string `json:"scope"`
 }
 
-// ConfirmLoginResponse is returned after generating an OAuth2 authorization code.
-type ConfirmLoginResponse struct {
+// AuthorizeResponse is returned after an OAuth2 authorization code is created.
+type AuthorizeResponse struct {
 	Status     string `json:"status" example:"success"`
 	RedirectTo string `json:"redirect_to"`
 }
 
 // TokenExchangeRequest is the body for exchanging an authorization code for a JWT.
 type TokenExchangeRequest struct {
+	GrantType    string `json:"grant_type"`
 	Code         string `json:"code"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
+	RedirectURI  string `json:"redirect_uri"`
 }
 
 // TokenExchangeResponse is the standard OAuth2 access token payload.
@@ -89,8 +85,27 @@ type ConsumeDelegationCodeResponse struct {
 	Status       string   `json:"status" example:"authenticated"`
 }
 
+// CreateClientRequest is the body for creating an OAuth client.
+type CreateClientRequest struct {
+	Name string `json:"name"`
+}
+
+// CreateClientResponse is returned after an OAuth client is created.
+type CreateClientResponse struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	Name         string `json:"name"`
+}
+
 // delegationPayload is the Redis cache entry for a pending delegation code.
 type delegationPayload struct {
 	Parent string `json:"parent"`
 	Email  string `json:"email"`
+}
+
+// authCodePayload is the Redis cache entry for a pending OAuth authorization code.
+type authCodePayload struct {
+	Email    string   `json:"email"`
+	ClientID string   `json:"client_id"`
+	Scopes   []string `json:"scopes"`
 }

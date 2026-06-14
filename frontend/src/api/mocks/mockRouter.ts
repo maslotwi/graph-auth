@@ -163,7 +163,7 @@ export async function handleMockRequest(
     return jsonResponse({ message: "Node invalidated." })
   }
 
-  if (method === "POST" && path === "/api/oauth/confirm") {
+  if (method === "POST" && path === "/api/oauth/authorize") {
     const token = getBearerToken(request.headers)
     if (!token) return jsonResponse({ message: "Unauthorized" }, 401)
     if (!getSession(token))
