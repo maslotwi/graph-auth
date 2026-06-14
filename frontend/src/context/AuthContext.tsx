@@ -36,12 +36,12 @@ export const AuthContext = createContext<AuthContextValue | null>(null)
 
 function persistSession(token: string, email: string): void {
   setSessionToken(token)
-  sessionStorage.setItem(EMAIL_KEY, email)
+  localStorage.setItem(EMAIL_KEY, email)
 }
 
 function clearPersistedSession(): void {
   clearSessionToken()
-  sessionStorage.removeItem(EMAIL_KEY)
+  localStorage.removeItem(EMAIL_KEY)
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -49,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     getSessionToken()
   )
   const [email, setEmail] = useState<string | null>(() =>
-    sessionStorage.getItem(EMAIL_KEY)
+    localStorage.getItem(EMAIL_KEY)
   )
   const [currentNode, setCurrentNode] = useState<GraphNode | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setSessionTokenState(token)
-    setEmail(sessionStorage.getItem(EMAIL_KEY))
+    setEmail(localStorage.getItem(EMAIL_KEY))
 
     try {
       const { node } = await nodesApi.getCurrentNode()
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionToken(token)
     setSessionTokenState(token)
     setEmail(null)
-    sessionStorage.removeItem(EMAIL_KEY)
+    localStorage.removeItem(EMAIL_KEY)
     try {
       const { node } = await nodesApi.getCurrentNode()
       setCurrentNode(node)

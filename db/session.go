@@ -252,6 +252,27 @@ func CreateChildSession(ctx context.Context, parentToken string, child Session) 
 	return err
 }
 
+// InvalidateSessionTree marks a session and every session it has spawned (at any depth)
+// as inactive. Used when a device logs out — no descendant can remain active.
+func InvalidateSessionTree(ctx context.Context, token string) error {
+	driver, err := Neo4j()
+	if err != nil {
+		return err
+	}
+
+	neo4jSession := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+	defer neo4jSession.Close(ctx)
+
+	_, err = neo4jSession.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
+		_, err := tx.Run(ctx, `
+			MATCH (s:Session {token: $token})-[:SPAWNED*0..]->(d:Session)
+			SET d.is_active = false
+		`, map[string]any{"token": token})
+		return nil, err
+	})
+	return err
+}
+
 func parseScopeSlice(val any) []string {
 	switch v := val.(type) {
 	case []string:

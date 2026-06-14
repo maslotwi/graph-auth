@@ -46,7 +46,7 @@ export default function CheckEmailPage() {
         <CardTitle>Check your email</CardTitle>
         <CardDescription>
           We sent a verification link to <strong>{email}</strong>. Open it to
-          activate your account and set up your root node.
+          set up this device and activate your account.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -56,7 +56,7 @@ export default function CheckEmailPage() {
           </Alert>
         ) : (
           <p className="text-sm text-muted-foreground">
-            The link will take you to root node setup. No password is required.
+            The link will take you to device setup. No password is required.
           </p>
         )}
       </CardContent>
