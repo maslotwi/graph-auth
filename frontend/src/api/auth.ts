@@ -22,6 +22,10 @@ export function verifyEmail(data: VerifyRequest): Promise<VerifyResponse> {
   })
 }
 
+export function invalidateSession(): Promise<{ message: string }> {
+  return apiClient("/api/auth/session/invalidate", { method: "POST" })
+}
+
 export function confirmSSO(data: {
   client_id: string
   redirect_uri: string

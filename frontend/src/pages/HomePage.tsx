@@ -12,7 +12,7 @@ import {
 import { useAuth } from "@/hooks/useAuth"
 
 export default function HomePage() {
-  const { currentNode, email, logout } = useAuth()
+  const { currentNode, email } = useAuth()
 
   if (!currentNode) {
     return null
@@ -48,14 +48,9 @@ export default function HomePage() {
               ))}
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" render={<Link to="/graph" />}>
-              Graph view
-            </Button>
-            <Button variant="outline" onClick={logout}>
-              Log out node
-            </Button>
-          </div>
+          <Button variant="outline" render={<Link to="/graph" />}>
+            Graph view
+          </Button>
         </CardContent>
       </Card>
     </div>

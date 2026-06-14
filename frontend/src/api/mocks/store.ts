@@ -100,14 +100,10 @@ export function invalidateNode(id: string): boolean {
 }
 
 function seedDemoChildren(root: GraphNode) {
-  const laptop = createChildNode(root.id, "Laptop", ["read", "write", "admin"])
+  const laptop = createChildNode(root.id, "Laptop", ["read", "fertile"])
   createChildNode(root.id, "Phone", ["read"])
-  const work = createChildNode(laptop.id, "Work Profile", [
-    "read",
-    "write",
-    "sso",
-  ])
-  createChildNode(work.id, "CI Runner", ["read", "write"])
+  const work = createChildNode(laptop.id, "Work Profile", ["read", "fertile"])
+  createChildNode(work.id, "CI Runner", ["read"])
 }
 
 export function createDelegationCode(

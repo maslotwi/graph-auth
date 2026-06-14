@@ -29,6 +29,25 @@ func RegisterDelegationRoutes(app *fiber.App) {
 
 	auth.Post("/generate-code", RequireSession, GenerateDelegationCode) // Auth required
 	auth.Post("/consume-code", ConsumeDelegationCode)                   // Public
+	auth.Post("/invalidate", RequireSession, InvalidateSession)         // Auth required
+}
+
+// InvalidateSession marks the caller's session and all sessions it has ever spawned as inactive.
+// @Summary             Invalidate Session Tree
+// @Description         Permanently deactivates the authenticated session and every descendant it has spawned. Used on logout — cannot be undone.
+// @Tags                Session Delegation
+// @Produce             json
+// @Param               Authorization header string true "Bearer <token>"
+// @Success             200 {object} map[string]string "Session and all descendants invalidated"
+// @Failure             401 {object} ErrorResponse "Missing or invalid session"
+// @Failure             500 {object} ErrorResponse "Database error"
+// @Router              /api/auth/session/invalidate [post]
+func InvalidateSession(c fiber.Ctx) error {
+	token := c.Locals("sessionToken").(string)
+	if err := db.InvalidateSessionTree(context.Background(), token); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "invalidate_failed"})
+	}
+	return c.JSON(fiber.Map{"message": "session_invalidated"})
 }
 
 // GenerateDelegationCode handles Scenario 1 & 2 (Step 1): Active device creates an invitation code

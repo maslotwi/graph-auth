@@ -11,8 +11,8 @@ export default function PublicLayout() {
           Graph Auth
         </Link>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" render={<Link to="/login" />}>
-            Log in
+          <Button variant="ghost" render={<Link to="/join" />}>
+            Join with code
           </Button>
           <Button render={<Link to="/register" />}>Sign up</Button>
         </div>
