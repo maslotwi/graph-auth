@@ -210,9 +210,9 @@ paths:
       description: Generates a temporary, single-use 6-digit code or URL link from
         an active session to invite a new device.
       parameters:
-      - description: Active Session Token of Generator Device
+      - description: Bearer <token> where token is a Session.token
         in: header
-        name: X-Session-Token
+        name: Authorization
         required: true
         type: string
       - description: Desired scopes for the target device
@@ -228,7 +228,7 @@ paths:
           schema:
             $ref: '#/definitions/api.GenerateDelegationCodeResponse'
         "401":
-          description: Unauthorized due to missing or invalid session context
+          description: Unauthorized due to missing, invalid, or inactive session
           schema:
             $ref: '#/definitions/api.ErrorResponse'
         "500":
