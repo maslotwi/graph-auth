@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"strings"
@@ -49,6 +48,7 @@ func RunAPIServer() {
 		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 	}))
+	RegisterAuthRoutes(app)
 	RegisterOAuthRoutes(app)
 	RegisterDelegationRoutes(app)
 
@@ -94,5 +94,5 @@ func RunAPIServer() {
 		}))
 	}
 
-	log.Fatal(app.Listen(fmt.Sprintf(":" + environment.Port)))
+	log.Fatal(app.Listen(":" + environment.Port))
 }

@@ -19,6 +19,52 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/auth/register": {
+            "post": {
+                "description": "Accepts an email address and sends a one-time login link valid for 15 minutes.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register / Request Magic Link",
+                "parameters": [
+                    {
+                        "description": "JSON body with email field",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Confirmation that the email was sent",
+                        "schema": {
+                            "$ref": "#/definitions/api.RegisterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing or invalid email",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to store token or send email",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/auth/session/consume-code": {
             "post": {
                 "description": "Redeems a valid 6-digit delegation code to provision a new child session node in the Neo4j provenance graph.",
@@ -116,6 +162,58 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal failure generating crypto code or saving to cache",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/auth/verify": {
+            "post": {
+                "description": "Consumes a one-time token from the magic link and returns a session token.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Verify Magic Link Token",
+                "parameters": [
+                    {
+                        "description": "JSON body with token, name, and scopes fields",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api.VerifyRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Session token and email",
+                        "schema": {
+                            "$ref": "#/definitions/api.VerifyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Missing token",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Token expired or invalid",
+                        "schema": {
+                            "$ref": "#/definitions/api.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to create session",
                         "schema": {
                             "$ref": "#/definitions/api.ErrorResponse"
                         }
@@ -412,6 +510,23 @@ const docTemplate = `{
                 }
             }
         },
+        "api.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Check your email for a verification link."
+                }
+            }
+        },
         "api.TokenExchangeRequest": {
             "type": "object",
             "properties": {
@@ -444,6 +559,34 @@ const docTemplate = `{
                 "token_type": {
                     "type": "string",
                     "example": "Bearer"
+                }
+            }
+        },
+        "api.VerifyRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "scopes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "token": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.VerifyResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "sessionToken": {
+                    "type": "string"
                 }
             }
         }

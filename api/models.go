@@ -10,6 +10,29 @@ type HealthResponse struct {
 	Status string `json:"status" example:"ok"`
 }
 
+// RegisterRequest is the body for requesting a magic-link email.
+type RegisterRequest struct {
+	Email string `json:"email"`
+}
+
+// RegisterResponse is returned after a magic-link email is sent.
+type RegisterResponse struct {
+	Message string `json:"message" example:"Check your email for a verification link."`
+}
+
+// VerifyRequest is the body for exchanging a magic-link token for a session.
+type VerifyRequest struct {
+	Token  string   `json:"token"`
+	Name   string   `json:"name"`
+	Scopes []string `json:"scopes"`
+}
+
+// VerifyResponse is returned after a magic-link token is verified.
+type VerifyResponse struct {
+	SessionToken string `json:"sessionToken"`
+	Email        string `json:"email"`
+}
+
 // AuthorizeResponse is returned when evaluating an OAuth2 authorize request.
 type AuthorizeResponse struct {
 	Status  string `json:"status" example:"authenticated"`
