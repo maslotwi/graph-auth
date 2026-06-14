@@ -26,14 +26,17 @@ func RegisterDelegationRoutes(app *fiber.App) {
 // @Tags                Session Delegation
 // @Accept              json
 // @Produce             json
-// @Param               X-Session-Token header string true "Active Session Token of Generator Device"
+// @Param               Authorization header string true "Bearer <token> where token is a Session.token"
 // @Param               body body GenerateDelegationCodeRequest false "Desired scopes for the target device"
 // @Success             200 {object} GenerateDelegationCodeResponse "Returns the 6-digit code, direct link, and TTL expiry"
-// @Failure             401 {object} ErrorResponse "Unauthorized due to missing or invalid session context"
+// @Failure             401 {object} ErrorResponse "Unauthorized due to missing, invalid, or inactive session"
 // @Failure             500 {object} ErrorResponse "Internal failure generating crypto code or saving to cache"
 // @Router              /api/auth/session/generate-code [post]
 func GenerateDelegationCode(c fiber.Ctx) error {
 	parentSessionToken := c.Locals("sessionToken").(string)
+	if !verifyTokenInGraph(parentSessionToken) {
+		return c.Status(fiber.StatusUnauthorized).JSON(ErrorResponse{Error: "session_invalid"})
+	}
 
 	var body GenerateDelegationCodeRequest
 	if err := c.Bind().Body(&body); err != nil {
@@ -113,6 +116,7 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 	}
 	err = db.CreateChildSession(context.Background(), delegation.Parent, childSession)
 	if err != nil {
+		fmt.Println("Error creating child session:", err)
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
 	}
 
