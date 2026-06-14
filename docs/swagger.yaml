@@ -36,6 +36,17 @@ definitions:
         example: success
         type: string
     type: object
+  api.ClientSummary:
+    properties:
+      client_id:
+        type: string
+      name:
+        type: string
+      redirect_uris:
+        items:
+          type: string
+        type: array
+    type: object
   api.ConsumeDelegationCodeRequest:
     properties:
       code:
@@ -398,6 +409,31 @@ paths:
       tags:
       - Auth
   /api/clients:
+    get:
+      description: Returns all OAuth clients registered by the authenticated account.
+        Does not include client secrets.
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/api.ClientSummary'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: List OAuth Clients
+      tags:
+      - Clients
     post:
       consumes:
       - application/json
@@ -439,6 +475,32 @@ paths:
           schema:
             $ref: '#/definitions/api.ErrorResponse'
       summary: Create OAuth Client
+      tags:
+      - Clients
+  /api/clients/{id}:
+    get:
+      description: Returns the display name of an OAuth client by ID. No authentication
+        required.
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Client not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get Client Info
       tags:
       - Clients
   /api/health:

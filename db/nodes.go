@@ -96,10 +96,9 @@ func InvalidateNodeInTree(ctx context.Context, callerToken, targetToken string) 
 	session := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
 	defer session.Close(ctx)
 
-	// Verify both tokens share the same RootSession.
+	// Verify target is a descendant of caller (not just in the same tree).
 	result, err := session.Run(ctx, `
-		MATCH (root:RootSession)-[:SPAWNED*1..]->(caller:Session {token: $callerToken})
-		MATCH (root)-[:SPAWNED*1..]->(target:Session {token: $targetToken})
+		MATCH (caller:Session {token: $callerToken})-[:SPAWNED*1..]->(target:Session {token: $targetToken})
 		RETURN count(target) > 0 AS authorized
 	`, map[string]any{
 		"callerToken": callerToken,

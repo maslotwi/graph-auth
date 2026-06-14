@@ -88,6 +88,13 @@ type ConsumeDelegationCodeResponse struct {
 	Status       string   `json:"status" example:"authenticated"`
 }
 
+// ClientSummary is a public-safe view of an OAuth client (no secret).
+type ClientSummary struct {
+	ClientID     string   `json:"client_id"`
+	Name         string   `json:"name"`
+	RedirectURIs []string `json:"redirect_uris"`
+}
+
 // CreateClientRequest is the body for creating an OAuth client.
 type CreateClientRequest struct {
 	Name         string   `json:"name"`
