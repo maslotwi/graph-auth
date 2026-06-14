@@ -52,6 +52,7 @@ func RunAPIServer() {
 	RegisterOAuthRoutes(app)
 	RegisterDelegationRoutes(app)
 	RegisterNodeRoutes(app)
+	RegisterClientRoutes(app)
 
 	// API routes
 	api := app.Group("/api")

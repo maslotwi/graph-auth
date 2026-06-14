@@ -17,6 +17,7 @@ var (
 	SMTPUser       string
 	SMTPPass       string
 	SMTPFrom       string
+	JWTSecret      string
 )
 
 func LoadEnv() {
@@ -76,5 +77,10 @@ func LoadEnv() {
 	SMTPFrom = os.Getenv("SMTP_FROM")
 	if SMTPFrom == "" {
 		SMTPFrom = "noreply@graph-auth.local"
+	}
+
+	JWTSecret = os.Getenv("JWT_SECRET")
+	if JWTSecret == "" {
+		JWTSecret = "dev-insecure-jwt-secret-change-me"
 	}
 }
