@@ -30,6 +30,7 @@ export function confirmSSO(data: {
   client_id: string
   redirect_uri: string
   state: string
+  scope?: string
 }): Promise<{ status: string; redirect_to: string }> {
   return apiClient("/api/oauth/authorize", { method: "POST", body: data })
 }

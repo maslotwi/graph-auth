@@ -24,22 +24,22 @@ var (
 
 // RootSession represents the canonical account anchor keyed by email.
 type RootSession struct {
-	Email     string
-	CreatedAt time.Time
+	Email       string
+	DisplayName string
+	Picture     string
+	CreatedAt   time.Time
 }
 
-// Session represents a device-bound session node in the provenance graph.
-type Session struct {
-	Token      string
-	DeviceName string
-	Scopes     []string
-	IsActive   bool
-	CreatedAt  time.Time
+// RootProfile is the OIDC-facing profile for a RootSession account.
+type RootProfile struct {
+	Email       string
+	DisplayName string
+	Picture     string
 }
 
 // CreateSessionFromRoot ensures a RootSession exists for the email and creates a
-// child Session node linked via SPAWNED.
-func CreateSessionFromRoot(ctx context.Context, email string, session Session) error {
+// child Session node linked via SPAWNED. displayName and picture are applied ON CREATE only.
+func CreateSessionFromRoot(ctx context.Context, email, displayName, picture string, session Session) error {
 	driver, err := Neo4j()
 	if err != nil {
 		return err
@@ -51,7 +51,9 @@ func CreateSessionFromRoot(ctx context.Context, email string, session Session) e
 	_, err = neo4jSession.ExecuteWrite(ctx, func(tx neo4j.ManagedTransaction) (any, error) {
 		result, err := tx.Run(ctx, `
 			MERGE (root:RootSession {email: $email})
-			ON CREATE SET root.created_at = datetime()
+			ON CREATE SET root.created_at = datetime(),
+			              root.display_name = $displayName,
+			              root.picture = $picture
 			CREATE (child:Session {
 				token: $token,
 				device_name: $deviceName,
@@ -62,11 +64,13 @@ func CreateSessionFromRoot(ctx context.Context, email string, session Session) e
 			CREATE (root)-[:SPAWNED {created_at: datetime()}]->(child)
 			RETURN child.token AS token
 		`, map[string]any{
-			"email":      email,
-			"token":      session.Token,
-			"deviceName": session.DeviceName,
-			"scopes":     session.Scopes,
-			"isActive":   session.IsActive,
+			"email":       email,
+			"displayName": displayName,
+			"picture":     picture,
+			"token":       session.Token,
+			"deviceName":  session.DeviceName,
+			"scopes":      session.Scopes,
+			"isActive":    session.IsActive,
 		})
 		if err != nil {
 			return nil, err
@@ -80,6 +84,58 @@ func CreateSessionFromRoot(ctx context.Context, email string, session Session) e
 	})
 
 	return err
+}
+
+// Session represents a device-bound session node in the provenance graph.
+type Session struct {
+	Token      string
+	DeviceName string
+	Scopes     []string
+	IsActive   bool
+	CreatedAt  time.Time
+}
+
+// GetRootProfileByEmail returns OIDC profile fields for the account root.
+func GetRootProfileByEmail(ctx context.Context, email string) (RootProfile, error) {
+	driver, err := Neo4j()
+	if err != nil {
+		return RootProfile{}, err
+	}
+
+	neo4jSession := driver.NewSession(ctx, neo4j.SessionConfig{AccessMode: neo4j.AccessModeRead})
+	defer neo4jSession.Close(ctx)
+
+	result, err := neo4jSession.Run(ctx, `
+		MATCH (root:RootSession {email: $email})
+		RETURN root.email AS email,
+		       coalesce(root.display_name, root.email) AS display_name,
+		       coalesce(root.picture, "") AS picture
+	`, map[string]any{"email": email})
+	if err != nil {
+		return RootProfile{}, err
+	}
+
+	if result.Next(ctx) {
+		record := result.Record()
+		emailVal, _ := record.Get("email")
+		displayNameVal, _ := record.Get("display_name")
+		pictureVal, _ := record.Get("picture")
+
+		emailStr, ok1 := emailVal.(string)
+		displayNameStr, ok2 := displayNameVal.(string)
+		pictureStr, ok3 := pictureVal.(string)
+		if !ok1 || !ok2 || !ok3 {
+			return RootProfile{}, ErrRootNotFound
+		}
+
+		return RootProfile{
+			Email:       emailStr,
+			DisplayName: displayNameStr,
+			Picture:     pictureStr,
+		}, nil
+	}
+
+	return RootProfile{}, ErrRootNotFound
 }
 
 // SessionHasScope reports whether an active session node includes the given scope.

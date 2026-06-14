@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/maslotwi/graph-auth/db"
 	"github.com/maslotwi/graph-auth/helpers/environment"
 )
 
@@ -23,7 +24,26 @@ type AccessClaims struct {
 	jwt.RegisteredClaims
 }
 
+// IDClaims are the standard OIDC claims embedded in an id_token.
+type IDClaims struct {
+	Email             string `json:"email,omitempty"`
+	EmailVerified     bool   `json:"email_verified,omitempty"`
+	Name              string `json:"name,omitempty"`
+	Picture           string `json:"picture,omitempty"`
+	PreferredUsername string `json:"preferred_username,omitempty"`
+	jwt.RegisteredClaims
+}
+
 func mintAccessJWT(email, clientID string, scopes []string, ttl time.Duration) (string, error) {
+	key, err := signingKey()
+	if err != nil {
+		return "", err
+	}
+	kid, err := keyID()
+	if err != nil {
+		return "", err
+	}
+
 	jti := generateSecureUUID()
 	now := time.Now()
 
@@ -33,14 +53,17 @@ func mintAccessJWT(email, clientID string, scopes []string, ttl time.Duration) (
 		Scopes:   scopes,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   email,
+			Audience:  jwt.ClaimStrings{clientID},
+			Issuer:    environment.IssuerURL,
 			ID:        jti,
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
 		},
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(environment.JWTSecret))
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = kid
+	signed, err := token.SignedString(key)
 	if err != nil {
 		return "", err
 	}
@@ -56,12 +79,53 @@ func mintAccessJWT(email, clientID string, scopes []string, ttl time.Duration) (
 	return signed, nil
 }
 
+func mintIDToken(profile db.RootProfile, clientID string, scopes []string, ttl time.Duration) (string, error) {
+	key, err := signingKey()
+	if err != nil {
+		return "", err
+	}
+	kid, err := keyID()
+	if err != nil {
+		return "", err
+	}
+
+	now := time.Now()
+	claims := IDClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Subject:   profile.Email,
+			Audience:  jwt.ClaimStrings{clientID},
+			Issuer:    environment.IssuerURL,
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(now.Add(ttl)),
+		},
+	}
+
+	if hasScope(scopes, ScopeEmail) {
+		claims.Email = profile.Email
+		claims.EmailVerified = true
+	}
+	if hasScope(scopes, ScopeProfile) {
+		claims.Name = profile.DisplayName
+		claims.Picture = profile.Picture
+		claims.PreferredUsername = preferredUsernameFromEmail(profile.Email)
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+	token.Header["kid"] = kid
+	return token.SignedString(key)
+}
+
 func parseAccessJWT(tokenString string) (*AccessClaims, error) {
+	key, err := signingKey()
+	if err != nil {
+		return nil, err
+	}
+
 	token, err := jwt.ParseWithClaims(tokenString, &AccessClaims{}, func(token *jwt.Token) (any, error) {
-		if token.Method != jwt.SigningMethodHS256 {
+		if token.Method != jwt.SigningMethodRS256 {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return []byte(environment.JWTSecret), nil
+		return &key.PublicKey, nil
 	})
 	if err != nil {
 		return nil, errJWTInvalid
