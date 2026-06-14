@@ -36,3 +36,5 @@ go.work.sum
 
 graph-auth
 graph-auth-server
+
+*.pem

@@ -441,6 +441,32 @@ paths:
       summary: Create OAuth Client
       tags:
       - Clients
+  /api/clients/{id}:
+    get:
+      description: Returns the display name of an OAuth client by ID. No authentication
+        required.
+      parameters:
+      - description: Client ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Client not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get Client Info
+      tags:
+      - Clients
   /api/health:
     get:
       description: Returns the health status of the API

@@ -213,13 +213,45 @@ function DevicesSection() {
 
 // ── Apps column ───────────────────────────────────────────────────────────────
 
-function CredentialRow({ label, value }: { label: string; value: string }) {
+const apiBase =
+  (import.meta.env.VITE_ISSUER_URL as string) ||
+  (import.meta.env.VITE_API_BASE_URL as string) ||
+  window.location.origin
+
+const OAUTH_ENDPOINTS = [
+  { label: "Authorization", value: `${apiBase}/api/oauth/authorize` },
+  { label: "Token",         value: `${apiBase}/api/oauth/token` },
+  { label: "Userinfo",      value: `${apiBase}/api/oauth/userinfo` },
+  { label: "Discovery",     value: `${apiBase}/.well-known/openid-configuration` },
+]
+
+function CopyRow({ label, value }: { label: string; value: string }) {
   const [copied, setCopied] = useState(false)
 
-  async function handleCopy() {
-    await navigator.clipboard.writeText(value)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  function handleCopy() {
+    const done = () => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(value).then(done).catch(() => fallback())
+    } else {
+      fallback()
+    }
+
+    function fallback() {
+      const el = document.createElement("textarea")
+      el.value = value
+      el.style.cssText = "position:fixed;opacity:0;pointer-events:none"
+      document.body.appendChild(el)
+      el.focus()
+      el.select()
+      const ok = document.execCommand("copy")
+      document.body.removeChild(el)
+      if (ok) done()
+      else toast.error("Copy failed — please select and copy manually.")
+    }
   }
 
   return (
@@ -234,7 +266,7 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
           variant="outline"
           size="sm"
           className="shrink-0"
-          onClick={() => void handleCopy()}
+          onClick={handleCopy}
         >
           {copied ? "Copied!" : "Copy"}
         </Button>
@@ -243,23 +275,50 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function EndpointsPanel() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="flex flex-col gap-2">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center justify-between text-xs font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span>Provider endpoints</span>
+        <span className="text-base leading-none">{open ? "−" : "+"}</span>
+      </button>
+      {open && OAUTH_ENDPOINTS.map(({ label, value }) => (
+        <CopyRow key={label} label={label} value={value} />
+      ))}
+    </div>
+  )
+}
+
 function AppsSection() {
   const { currentNode } = useAuth()
   const [name, setName] = useState("")
+  const [redirectUrisRaw, setRedirectUrisRaw] = useState("")
   const [isCreating, setIsCreating] = useState(false)
   const [credentials, setCredentials] = useState<ClientCredentials | null>(null)
 
   const hasClientsScope = currentNode?.permissions.includes("clients") ?? false
 
+  const parsedUris = redirectUrisRaw
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean)
+
   async function handleCreate(e: { preventDefault(): void }) {
     e.preventDefault()
     const trimmed = name.trim()
-    if (!trimmed) return
+    if (!trimmed || parsedUris.length === 0) return
     setIsCreating(true)
     try {
-      const creds = await createClient(trimmed)
+      const creds = await createClient(trimmed, parsedUris)
       setCredentials(creds)
       setName("")
+      setRedirectUrisRaw("")
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Failed to create app.")
     } finally {
@@ -289,7 +348,11 @@ function AppsSection() {
             sign-in.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-5">
+          <EndpointsPanel />
+
+          <Separator />
+
           {!hasClientsScope ? (
             <p className="text-sm text-muted-foreground">
               Your session needs the{" "}
@@ -303,15 +366,11 @@ function AppsSection() {
                   Save the client secret now — it will not be shown again.
                 </p>
               </div>
-              <CredentialRow label="App name" value={credentials.name} />
-              <CredentialRow label="Client ID" value={credentials.client_id} />
-              <CredentialRow label="Client Secret" value={credentials.client_secret} />
-              <Separator />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCredentials(null)}
-              >
+              <CopyRow label="App name" value={credentials.name} />
+              <CopyRow label="Client ID" value={credentials.client_id} />
+              <CopyRow label="Client Secret" value={credentials.client_secret} />
+              <CopyRow label="Redirect URIs" value={credentials.redirect_uris.join("\n")} />
+              <Button variant="outline" size="sm" onClick={() => setCredentials(null)}>
                 Done
               </Button>
             </div>
@@ -326,9 +385,21 @@ function AppsSection() {
                   onChange={(e) => setName(e.target.value)}
                 />
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="redirect-uris">Redirect URIs</Label>
+                <textarea
+                  id="redirect-uris"
+                  rows={3}
+                  placeholder={"https://myapp.com/callback\nhttp://localhost:3000/callback"}
+                  value={redirectUrisRaw}
+                  onChange={(e) => setRedirectUrisRaw(e.target.value)}
+                  className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring font-mono resize-none"
+                />
+                <p className="text-xs text-muted-foreground">One URI per line.</p>
+              </div>
               <Button
                 type="submit"
-                disabled={isCreating || !name.trim()}
+                disabled={isCreating || !name.trim() || parsedUris.length === 0}
                 className="self-start"
               >
                 {isCreating ? "Registering…" : "Register app"}

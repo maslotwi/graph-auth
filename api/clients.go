@@ -12,7 +12,30 @@ import (
 // RegisterClientRoutes registers OAuth client management endpoints.
 func RegisterClientRoutes(app *fiber.App) {
 	clients := app.Group("/api/clients")
+	clients.Get("/:id", GetClientInfo)
 	clients.Post("/", RequireSession, CreateClient)
+}
+
+// GetClientInfo returns the public-facing name of an OAuth client.
+//
+// @Summary             Get Client Info
+// @Description         Returns the display name of an OAuth client by ID. No authentication required.
+// @Tags                Clients
+// @Produce             json
+// @Param               id path string true "Client ID"
+// @Success             200 {object} map[string]string
+// @Failure             404 {object} ErrorResponse "Client not found"
+// @Router              /api/clients/{id} [get]
+func GetClientInfo(c fiber.Ctx) error {
+	clientID := c.Params("id")
+	client, err := db.GetClientByID(context.Background(), clientID)
+	if err != nil {
+		if errors.Is(err, db.ErrClientNotFound) {
+			return c.Status(fiber.StatusNotFound).JSON(ErrorResponse{Error: "client_not_found"})
+		}
+		return c.Status(fiber.StatusInternalServerError).JSON(ErrorResponse{Error: "client_lookup_failed"})
+	}
+	return c.JSON(fiber.Map{"name": client.Name})
 }
 
 // CreateClient creates a new OAuth client owned by the authenticated account.
