@@ -1,4 +1,4 @@
-export const PERMISSIONS = ["read", "fertile"] as const
+export const PERMISSIONS = ["read", "fertile", "clients"] as const
 
 export type Permission = (typeof PERMISSIONS)[number]
 

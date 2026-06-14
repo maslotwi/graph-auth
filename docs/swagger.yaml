@@ -1,5 +1,22 @@
 basePath: /
 definitions:
+  api.APINode:
+    properties:
+      id:
+        type: string
+      isRoot:
+        type: boolean
+      label:
+        type: string
+      permissions:
+        items:
+          type: string
+        type: array
+      predecessorId:
+        type: string
+      status:
+        type: string
+    type: object
   api.AuthorizeRequest:
     properties:
       client_id:
@@ -76,6 +93,18 @@ definitions:
       status:
         example: ok
         type: string
+    type: object
+  api.NodeResponse:
+    properties:
+      node:
+        $ref: '#/definitions/api.APINode'
+    type: object
+  api.NodeTreeResponse:
+    properties:
+      nodes:
+        items:
+          $ref: '#/definitions/api.APINode'
+        type: array
     type: object
   api.RegisterRequest:
     properties:
@@ -244,6 +273,36 @@ paths:
       summary: Generate Session Invitation Code
       tags:
       - Session Delegation
+  /api/auth/session/invalidate:
+    post:
+      description: Permanently deactivates the authenticated session and every descendant
+        it has spawned. Used on logout — cannot be undone.
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Session and all descendants invalidated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Missing or invalid session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Database error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Invalidate Session Tree
+      tags:
+      - Session Delegation
   /api/auth/verify:
     post:
       consumes:
@@ -336,6 +395,101 @@ paths:
       summary: Health Check
       tags:
       - System
+  /api/nodes/{id}/invalidate:
+    post:
+      description: Permanently deactivates the target session and every session it
+        has spawned. The target must be in the caller's account tree.
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Session token of the node to invalidate
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Node invalidated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Missing or invalid session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "403":
+          description: Target not in caller's tree
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Invalidation failed
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Invalidate Node
+      tags:
+      - Nodes
+  /api/nodes/me:
+    get:
+      description: Returns the session node associated with the authenticated Bearer
+        token.
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current session node
+          schema:
+            $ref: '#/definitions/api.NodeResponse'
+        "401":
+          description: Missing or invalid session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "404":
+          description: Node not found
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get Current Node
+      tags:
+      - Nodes
+  /api/nodes/tree:
+    get:
+      description: Returns every session node in the account tree that the authenticated
+        token belongs to.
+      parameters:
+      - description: Bearer <token>
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: All nodes in the account tree
+          schema:
+            $ref: '#/definitions/api.NodeTreeResponse'
+        "401":
+          description: Missing or invalid session
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Lookup failed
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get Session Tree
+      tags:
+      - Nodes
   /api/oauth/authorize:
     post:
       consumes:

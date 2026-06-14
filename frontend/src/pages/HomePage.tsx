@@ -100,9 +100,31 @@ function DevicesSection() {
           <CardDescription>All sessions in your account tree.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
+          {currentNode && (
+            <>
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">This device</p>
+              <div className="flex items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3">
+                <div className="flex flex-col gap-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium truncate">{currentNode.label}</span>
+                    {currentNode.isRoot && <Badge className="text-[10px]">Root</Badge>}
+                    <Badge variant="secondary" className="text-[10px]">active</Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {currentNode.permissions.map((p) => (
+                      <Badge key={p} variant="outline" className="text-[10px]">{p}</Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {otherNodes.length > 0 && (
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide pt-1">Other devices</p>
+              )}
+            </>
+          )}
           {isLoadingNodes ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
-          ) : otherNodes.length === 0 ? (
+          ) : otherNodes.length === 0 && !currentNode ? (
             <p className="text-sm text-muted-foreground">No other devices yet.</p>
           ) : (
             otherNodes.map((node) => (

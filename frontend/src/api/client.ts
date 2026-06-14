@@ -7,21 +7,21 @@ let authToken: string | null = null
 
 export function getSessionToken(): string | null {
   if (authToken) return authToken
-  return sessionStorage.getItem(SESSION_TOKEN_KEY)
+  return localStorage.getItem(SESSION_TOKEN_KEY)
 }
 
 export function setSessionToken(token: string | null): void {
   authToken = token
   if (token) {
-    sessionStorage.setItem(SESSION_TOKEN_KEY, token)
+    localStorage.setItem(SESSION_TOKEN_KEY, token)
   } else {
-    sessionStorage.removeItem(SESSION_TOKEN_KEY)
+    localStorage.removeItem(SESSION_TOKEN_KEY)
   }
 }
 
 export function clearSessionToken(): void {
   authToken = null
-  sessionStorage.removeItem(SESSION_TOKEN_KEY)
+  localStorage.removeItem(SESSION_TOKEN_KEY)
 }
 
 type RequestOptions = Omit<RequestInit, "body"> & {
