@@ -1,22 +1,10 @@
 import { apiClient } from "./client"
 import type {
   ConsumeCodeResponse,
-  CreateRootNodeRequest,
-  CreateRootNodeResponse,
   DelegationCodeResponse,
   MeNodeResponse,
   NodeTreeResponse,
 } from "@/types/auth"
-import type { Permission } from "@/types/node"
-
-export function createRootNode(
-  data: CreateRootNodeRequest
-): Promise<CreateRootNodeResponse> {
-  return apiClient<CreateRootNodeResponse>("/api/nodes/root", {
-    method: "POST",
-    body: data,
-  })
-}
 
 export function getCurrentNode(): Promise<MeNodeResponse> {
   return apiClient<MeNodeResponse>("/api/nodes/me")
@@ -30,23 +18,20 @@ export function invalidateNode(id: string): Promise<{ message: string }> {
   return apiClient(`/api/nodes/${id}/invalidate`, { method: "POST" })
 }
 
-export function generateDelegationCode(
-  nodeId: string,
-  scopes?: Permission[]
-): Promise<DelegationCodeResponse> {
+export function generateDelegationCode(): Promise<DelegationCodeResponse> {
   return apiClient<DelegationCodeResponse>("/api/auth/session/generate-code", {
     method: "POST",
-    body: { node_id: nodeId, scopes },
   })
 }
 
 export function consumeDelegationCode(
   code: string,
-  deviceName: string
+  deviceName: string,
+  scopes: string[]
 ): Promise<ConsumeCodeResponse> {
   return apiClient<ConsumeCodeResponse>("/api/auth/session/consume-code", {
     method: "POST",
     auth: false,
-    body: { code, device_name: deviceName },
+    body: { code, device_name: deviceName, scopes },
   })
 }

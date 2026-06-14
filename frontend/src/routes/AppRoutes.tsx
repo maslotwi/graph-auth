@@ -2,7 +2,6 @@ import { lazy, Suspense, type ComponentType, type ReactNode } from "react"
 import { type RouteObject } from "react-router-dom"
 
 import { RequireAuth } from "@/components/RequireAuth"
-import { RequireRootSetup } from "@/components/RequireRootSetup"
 import AppLayout from "@/layouts/AppLayout"
 import PublicLayout from "@/layouts/PublicLayout"
 
@@ -16,7 +15,6 @@ const RegisterPage = lazyPage(() => import("@/pages/RegisterPage"))
 const MyDevicesPage = lazyPage(() => import("@/pages/MyDevicesPage"))
 const CheckEmailPage = lazyPage(() => import("@/pages/CheckEmailPage"))
 const VerifyEmailPage = lazyPage(() => import("@/pages/VerifyEmailPage"))
-const RootNodeSetupPage = lazyPage(() => import("@/pages/RootNodeSetupPage"))
 const GraphPage = lazyPage(() => import("@/pages/GraphPage"))
 const JoinPage = lazyPage(() => import("@/pages/JoinPage"))
 const SSOConsentPage = lazyPage(() => import("@/pages/SSOConsentPage"))
@@ -43,15 +41,6 @@ export const routes: RouteObject[] = [
       { path: "/verify", element: withSuspense(<VerifyEmailPage />) },
       { path: "/join", element: withSuspense(<JoinPage />) },
       { path: "/sso/consent", element: withSuspense(<SSOConsentPage />) },
-    ],
-  },
-  {
-    element: <RequireRootSetup />,
-    children: [
-      {
-        path: "/setup/root",
-        element: withSuspense(<RootNodeSetupPage />),
-      },
     ],
   },
   {

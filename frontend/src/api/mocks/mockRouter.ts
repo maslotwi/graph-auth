@@ -1,5 +1,6 @@
 import { apiUrl } from "@/lib/api"
 import type { GraphNode } from "@/types/node"
+import { PERMISSIONS } from "@/types/node"
 import {
   consumeDelegationCode,
   createChildNode,
@@ -50,13 +51,15 @@ export async function handleMockRequest(
   }
 
   if (method === "POST" && path === "/api/auth/verify") {
-    const body = request.body as { token?: string }
+    const body = request.body as { token?: string; name?: string; scopes?: GraphNode["permissions"] }
     if (!body.token) {
-      return jsonResponse({ message: "Verification token is required." }, 400)
+      return jsonResponse({ error: "token_required" }, 400)
     }
     const email = "user@example.com"
     const sessionToken = createSession(email)
-    return jsonResponse({ sessionToken, email, requiresRootSetup: true })
+    const permissions = body.scopes ?? [...PERMISSIONS]
+    createRootNode(sessionToken, body.name?.trim() || "My Device", permissions)
+    return jsonResponse({ sessionToken, email })
   }
 
   if (method === "POST" && path === "/api/auth/session/generate-code") {
@@ -83,35 +86,6 @@ export async function handleMockRequest(
     if (!result)
       return jsonResponse({ message: "Code expired or invalid." }, 401)
     return jsonResponse(result)
-  }
-
-  if (method === "POST" && path === "/api/nodes/root") {
-    const token = getBearerToken(request.headers)
-    if (!token) {
-      return jsonResponse({ message: "Unauthorized" }, 401)
-    }
-
-    const session = getSession(token)
-    if (!session) {
-      return jsonResponse({ message: "Unauthorized" }, 401)
-    }
-
-    const body = request.body as {
-      label?: string
-      permissions?: GraphNode["permissions"]
-    }
-
-    const node = createRootNode(
-      token,
-      body.label?.trim() || "Root Node",
-      body.permissions ?? []
-    )
-
-    if (!node) {
-      return jsonResponse({ message: "Root node already exists." }, 409)
-    }
-
-    return jsonResponse({ node })
   }
 
   if (method === "GET" && path === "/api/nodes/me") {

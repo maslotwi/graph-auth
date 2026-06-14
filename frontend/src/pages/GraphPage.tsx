@@ -193,7 +193,7 @@ function NodeDetailPanel({
   async function handleGenerateInvite() {
     setIsGenerating(true)
     try {
-      const { code, link } = await generateDelegationCode(node.id)
+      const { code, link } = await generateDelegationCode()
       setInvite({ code, link })
     } catch (err) {
       toast.error(
