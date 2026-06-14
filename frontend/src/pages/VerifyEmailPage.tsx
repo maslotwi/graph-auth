@@ -36,7 +36,7 @@ export default function VerifyEmailPage() {
     )
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: { preventDefault(): void }) {
     event.preventDefault()
     if (!token) return
     if (scopes.length === 0) {

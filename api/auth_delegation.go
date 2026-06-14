@@ -120,6 +120,9 @@ func ConsumeDelegationCode(c fiber.Ctx) error {
 		return c.Status(fiber.StatusForbidden).JSON(ErrorResponse{Error: "session_delegation_denied_or_parent_revoked"})
 	}
 
+	parentEmail, _ := getFromRedis("session:" + delegation.Parent)
+	_ = storeInRedis("session:"+newDeviceSessionToken, parentEmail, 86400)
+
 	return c.JSON(ConsumeDelegationCodeResponse{
 		SessionToken: newDeviceSessionToken,
 		Scopes:       allowedScopes,
