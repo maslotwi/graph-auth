@@ -96,6 +96,18 @@ function DevicesSection() {
   const isRunning = codeData !== null && !isExpired
   const otherNodes = nodes.filter((n) => n.id !== currentNode?.id)
 
+  // Build the set of ancestor IDs for the current node so we can
+  // hide the Invalidate button on nodes that are above us in the tree.
+  const ancestorIds = new Set<string>()
+  if (currentNode) {
+    const nodeMap = new Map(nodes.map((n) => [n.id, n]))
+    let cursor: GraphNode | undefined = currentNode
+    while (cursor?.predecessorId) {
+      ancestorIds.add(cursor.predecessorId)
+      cursor = nodeMap.get(cursor.predecessorId)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <Card>
@@ -153,7 +165,7 @@ function DevicesSection() {
                     ))}
                   </div>
                 </div>
-                {node.status === "active" && (
+                {node.status === "active" && !ancestorIds.has(node.id) && (
                   <Button
                     variant="destructive"
                     size="sm"
