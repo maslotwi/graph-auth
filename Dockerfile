@@ -7,7 +7,7 @@ COPY frontend/ ./
 RUN bun run build
 
 # Stage 2: Build the Go backend
-FROM golang:1.22-alpine as backend-builder
+FROM golang:1.26.3-alpine as backend-builder
 WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
