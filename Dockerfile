@@ -32,6 +32,8 @@ COPY --from=backend-builder /app/graph-auth-server .
 # your Go app serves static files directly from disk instead of embedding
 COPY --from=frontend-builder /app/dist ./frontend/dist
 
+COPY app.json .
+
 # Dokku automatically sets and routes the PORT environment variable.
 ENV PORT=8080
 EXPOSE 8080
