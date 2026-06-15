@@ -52,9 +52,9 @@ func LoadEnv() {
 		Neo4jPassword = "graphauth"
 	}
 
-	RedisAddr = os.Getenv("REDIS_ADDR")
+	RedisAddr = os.Getenv("REDIS_URL")
 	if RedisAddr == "" {
-		RedisAddr = "localhost:6379"
+		RedisAddr = "redis://localhost:6379/0"
 	}
 
 	FrontendURL = os.Getenv("FRONTEND_URL")

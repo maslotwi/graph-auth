@@ -1,0 +1,15 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "type": "startup",
+        "name": "web-startup-check",
+        "description": "Checking if the Go Fiber app is up and running",
+        "path": "/api/health",
+        "attempts": 5,
+        "wait": 2,
+        "timeout": 3
+      }
+    ]
+  }
+}

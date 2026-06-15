@@ -18,9 +18,13 @@ var (
 // for concurrent use across goroutines.
 func Redis() (*redis.Client, error) {
 	redisOnce.Do(func() {
-		redisClient = redis.NewClient(&redis.Options{
-			Addr: environment.RedisAddr,
-		})
+		opts, err := redis.ParseURL(environment.RedisURL)
+		if err != nil {
+			redisErr = err
+			return
+		}
+
+		redisClient = redis.NewClient(opts)
 		redisErr = redisClient.Ping(context.Background()).Err()
 	})
 	return redisClient, redisErr
