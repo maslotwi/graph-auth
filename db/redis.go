@@ -18,7 +18,7 @@ var (
 // for concurrent use across goroutines.
 func Redis() (*redis.Client, error) {
 	redisOnce.Do(func() {
-		opts, err := redis.ParseURL(environment.RedisURL)
+		opts, err := redis.ParseURL(environment.RedisAddr)
 		if err != nil {
 			redisErr = err
 			return
